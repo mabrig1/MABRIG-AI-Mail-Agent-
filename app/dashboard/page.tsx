@@ -1,4 +1,5 @@
 import { AgentConsole } from '@/components/agent-console'
+import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { LogoutButton } from '@/components/logout-button'
 import { requireAdmin } from '@/lib/auth-server'
 
@@ -41,6 +42,7 @@ export default async function DashboardPage() {
       </section>
 
       <AgentConsole />
+      <DeliverabilityChecker />
 
       <section className="architecture">
         <h2>Production architecture</h2>
