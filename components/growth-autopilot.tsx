@@ -18,6 +18,7 @@ type Journey = {
     preheader?: string
     bodyText?: string
     ctaText?: string
+    ctaUrl?: string
   }
   billionMail?: {
     taskId?: number
@@ -42,6 +43,7 @@ type Approval = {
     preheader: string
     bodyText: string
     ctaText: string
+    ctaUrl?: string
     digest: string
   }
 }
@@ -210,6 +212,7 @@ export function GrowthAutopilot() {
                   {journey.campaignDraft.preheader && <p>{journey.campaignDraft.preheader}</p>}
                   {journey.campaignDraft.bodyText && <pre>{journey.campaignDraft.bodyText}</pre>}
                   {journey.campaignDraft.ctaText && <strong>{journey.campaignDraft.ctaText}</strong>}
+                  {journey.campaignDraft.ctaUrl && <p className="attributed-link"><code>{journey.campaignDraft.ctaUrl}</code></p>}
                 </div>
               )}
 
@@ -270,6 +273,9 @@ export function GrowthAutopilot() {
             {approval.campaignDraft?.preheader && <p><strong>Preheader:</strong> {approval.campaignDraft.preheader}</p>}
             {approval.campaignDraft?.bodyText && <pre>{approval.campaignDraft.bodyText}</pre>}
             {approval.campaignDraft?.ctaText && <p><strong>CTA:</strong> {approval.campaignDraft.ctaText}</p>}
+            {approval.campaignDraft?.ctaUrl && (
+              <p className="attributed-link"><strong>Signed CTA URL:</strong> <code>{approval.campaignDraft.ctaUrl}</code></p>
+            )}
             <p>
               {approval.executable
                 ? 'Execution is enabled: approval will create and schedule a native BillionMail marketing task.'
