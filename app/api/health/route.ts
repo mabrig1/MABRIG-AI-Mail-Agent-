@@ -37,6 +37,13 @@ export async function GET() {
       (process.env.BILLIONMAIL_USERNAME && process.env.BILLIONMAIL_PASSWORD)
     ),
     forwardingExecutionEnabled: process.env.FORWARDING_EXECUTION_ENABLED === 'true',
+    campaignExecution: {
+      enabled: process.env.CAMPAIGN_EXECUTION_ENABLED === 'true',
+      senderConfigured: Boolean(process.env.CAMPAIGN_SENDER),
+      maxRecipients: Math.max(Number(process.env.CAMPAIGN_MAX_RECIPIENTS ?? 1000), 1),
+      dnsPassRequired: process.env.CAMPAIGN_REQUIRE_DNS_PASS !== 'false',
+      startDelaySeconds: Math.max(Number(process.env.CAMPAIGN_START_DELAY_SECONDS ?? 300), 60),
+    },
     growthAutopilot: {
       cooldownDays: Math.max(Number(process.env.GROWTH_AUTOPILOT_COOLDOWN_DAYS ?? 7), 1),
       schedulerSecretConfigured: Boolean(
