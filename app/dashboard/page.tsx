@@ -1,4 +1,6 @@
 import { AgentConsole } from '@/components/agent-console'
+import { BusinessGrowthStudio } from '@/components/business-growth-studio'
+import { LeadIntelligence } from '@/components/lead-intelligence'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { ForwardingStudio } from '@/components/forwarding-studio'
 import { ForwardingRulesManager } from '@/components/forwarding-rules-manager'
@@ -13,6 +15,10 @@ const agents = [
   ['Mail-Server Operator', 'Explain server state and propose safe operational actions.'],
   ['Email Forwarding Agent', 'Review messages and prepare safe forwards to explicit recipients.'],
   ['Forwarding Rule Planner', 'Design conservative recurring routing rules with loop and privacy checks.'],
+  ['Business Promotion Strategist', 'Turn business goals into offers, segments and measurable promotion plans.'],
+  ['Growth Intelligence Agent', 'Find acquisition, conversion, retention and referral opportunities.'],
+  ['Lifecycle Journey Architect', 'Build prospect, onboarding, repeat-purchase, referral and win-back journeys.'],
+  ['Sales Opportunity Agent', 'Score supplied intent signals and recommend the next best business action.'],
 ]
 
 export default async function DashboardPage() {
@@ -45,6 +51,8 @@ export default async function DashboardPage() {
         ))}
       </section>
 
+      <BusinessGrowthStudio />
+      <LeadIntelligence />
       <AgentConsole />
       <ForwardingStudio />
       <ForwardingRulesManager />
