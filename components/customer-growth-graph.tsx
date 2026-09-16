@@ -64,6 +64,7 @@ export function CustomerGrowthGraph() {
     email: '',
     type: 'email_reply',
     source: 'manual',
+    campaignId: '',
     value: '',
     currency: 'NGN',
     product: '',
@@ -137,6 +138,7 @@ export function CustomerGrowthGraph() {
       email: interaction.email,
       type: interaction.type,
       source: interaction.source,
+      campaignId: interaction.campaignId || undefined,
       product: interaction.product || undefined,
       note: interaction.note || undefined,
       currency: interaction.currency || undefined,
@@ -155,7 +157,7 @@ export function CustomerGrowthGraph() {
       setStatus(result.error ?? 'Could not record interaction.')
     } else {
       setStatus('Interaction recorded and growth segments refreshed.')
-      setInteraction(current => ({ ...current, value: '', product: '', note: '' }))
+      setInteraction(current => ({ ...current, campaignId: '', value: '', product: '', note: '' }))
       await refresh()
     }
 
@@ -238,6 +240,7 @@ export function CustomerGrowthGraph() {
                 {interactionTypes.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
               </select>
               <input value={interaction.source} onChange={e => setInteraction(current => ({ ...current, source: e.target.value }))} placeholder="Source: website, campaign, sales..." />
+              <input value={interaction.campaignId} onChange={e => setInteraction(current => ({ ...current, campaignId: e.target.value }))} placeholder="Campaign attribution ID (journey ID or bm:taskId)" />
               <input value={interaction.product} onChange={e => setInteraction(current => ({ ...current, product: e.target.value }))} placeholder="Product / service" />
               <div className="money-row">
                 <input type="number" min="0" step="0.01" value={interaction.value} onChange={e => setInteraction(current => ({ ...current, value: e.target.value }))} placeholder="Value" />
