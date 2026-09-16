@@ -8,6 +8,7 @@ export type GrowthJourneyStatus =
   | 'approval-staged'
   | 'approved-awaiting-executor'
   | 'scheduled'
+  | 'completed'
   | 'execution-failed'
   | 'dismissed'
 
@@ -164,4 +165,23 @@ export async function updateGrowthJourneyStatus(
     { returnDocument: 'after' },
   )
   return result
+}
+
+
+export async function patchGrowthJourney(
+  id: string,
+  details: Record<string, unknown>,
+) {
+  if (!ObjectId.isValid(id)) throw new Error('Invalid growth journey id.')
+  const db = await getDatabase()
+  return db.collection(COLLECTION).findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        ...details,
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  )
 }
