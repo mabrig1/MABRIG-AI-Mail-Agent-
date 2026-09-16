@@ -440,7 +440,7 @@ Current adapters:
 
 These adapters do not grant marketing consent. They only add factual lifecycle/business signals to the Growth Graph.
 
-The Conversion Gateway ledger also retains safe operational source metadata—source app, product/service, amount and currency—without storing raw provider payloads. The administrator dashboard groups recent events by connected source application so the MABRIG portfolio can be viewed as one growth network.
+The Conversion Gateway ledger also retains safe operational source metadata—source app, product/service, amount and currency—without storing raw provider payloads. The administrator dashboard aggregates all processed conversion records by connected source application, showing events, purchases, quote requests, purchase value by currency and explicitly attributed outcomes so the MABRIG portfolio can be viewed as one growth network.
 
 ## Production topology
 
