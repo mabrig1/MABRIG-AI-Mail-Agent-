@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { verifyAttributionToken } from '@/lib/attribution'
 import { MongoServerError } from 'mongodb'
 import {
   ensureGrowthGraphIndexes,
@@ -274,4 +275,51 @@ export async function listRecentConversionEvents(limit = 30) {
       lastError: 1,
     })
     .toArray()
+}
+
+
+export function extractAttributionToken(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object') return undefined
+  const record = metadata as Record<string, unknown>
+
+  const tokenKeys = [
+    'mabrig_attribution',
+    'attributionToken',
+    'attribution_token',
+  ]
+
+  for (const key of tokenKeys) {
+    const value = textValue(record[key])
+    if (value) return value.slice(0, 2048)
+  }
+
+  const customFields = Array.isArray(record.custom_fields)
+    ? record.custom_fields
+    : []
+
+  for (const field of customFields) {
+    if (!field || typeof field !== 'object') continue
+    const item = field as Record<string, unknown>
+    const variableName = textValue(item.variable_name)
+    if (!tokenKeys.includes(variableName)) continue
+    const value = textValue(item.value)
+    if (value) return value.slice(0, 2048)
+  }
+
+  return undefined
+}
+
+export function resolveProviderCampaignId(metadata: unknown) {
+  const token = extractAttributionToken(metadata)
+  if (token) {
+    const claims = verifyAttributionToken(token)
+    if (claims) return claims.campaignId
+    return undefined
+  }
+
+  if (process.env.ALLOW_UNSIGNED_PROVIDER_ATTRIBUTION === 'true') {
+    return extractCampaignId(metadata)
+  }
+
+  return undefined
 }
