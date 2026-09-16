@@ -14,6 +14,7 @@ const ALLOWED = new Set<AgentKind>([
   'growth',
   'lifecycle',
   'sales',
+  'autopilot',
 ])
 
 export async function POST(request: Request) {
