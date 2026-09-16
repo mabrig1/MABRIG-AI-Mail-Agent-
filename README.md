@@ -75,6 +75,9 @@ ADMIN_PASSWORD_SHA256=""
 AUTH_SECRET=""
 APPROVAL_SECRET=""
 
+MONGODB_URI=""
+MONGODB_DB_NAME="mabrig_ai_mail"
+
 BILLIONMAIL_BASE_URL=""
 BILLIONMAIL_API_TOKEN=""
 BILLIONMAIL_USERNAME=""
@@ -164,13 +167,41 @@ Example:
 
 Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`, `promotion`, `growth`, `lifecycle`, `sales`.
 
+## Customer Growth Graph
+
+When `MONGODB_URI` is configured, MABRIG gains durable business memory across server instances. The graph stores operational customer-growth data, not raw mailbox content.
+
+Persisted collections include:
+
+- contacts with lifecycle stage, tags, market and current consent state;
+- interaction events such as opens, clicks, replies, pricing visits, quote requests, purchases, referrals and unsubscribes;
+- purchase history used for repeat-customer, reactivation and referral logic;
+- transparent lead/opportunity assessments;
+- exact-once approval execution claims;
+- structured audit events.
+
+The graph automatically produces useful business segments such as **Permissioned Audience**, **Engaged in 30 Days**, **High-Intent Signals**, **Opportunity Radar**, **Reactivation Candidates**, and **Referral Candidates**.
+
+Unsubscribe events immediately turn off the stored marketing-consent flag. Consent-granted events can turn it back on with a source and timestamp.
+
+Passwords, API tokens, bearer tokens and raw email bodies are intentionally excluded from the growth graph.
+
 ## Marketing APIs
 
 `POST /api/marketing/growth-plan` runs the Business Promotion, Growth Intelligence, Lifecycle and Sales agents in parallel against one business brief and returns a four-part growth system.
 
-`POST /api/marketing/lead-score` applies transparent deterministic lead scoring to supplied engagement signals and then asks the Sales Opportunity Agent for a cautious next-best action and follow-up draft.
+`POST /api/marketing/lead-score` applies transparent deterministic lead scoring to supplied engagement signals and then asks the Sales Opportunity Agent for a cautious next-best action and follow-up draft. If a contact email is supplied and MongoDB is configured, the assessment is persisted into Opportunity Radar.
 
 The Growth Studio can stage the resulting plan as a signed `create_campaign` proposal. Campaign execution is still approval-only until a verified campaign executor is connected to the underlying mail platform.
+
+## Growth Graph APIs
+
+- `GET/POST /api/growth/contacts` — list or upsert business contacts.
+- `POST /api/growth/interactions` — record permission, engagement, purchase and referral signals.
+- `GET /api/growth/segments` — compute live consent-aware growth segments.
+- `GET /api/growth/opportunities` — return the highest current transparent opportunity scores.
+
+MongoDB persistence also upgrades approval replay protection from process-local memory to an atomic database-backed exact-once claim, which is appropriate for multi-instance/serverless deployments.
 
 ## Production topology
 
@@ -191,7 +222,7 @@ Recommended public endpoints:
 4. ✅ Business Growth OS, campaign planning and lead intelligence; campaign execution remains pending.
 5. ✅ Deliverability checks and DNS diagnostics.
 6. Forwarding-rule administration and multi-domain mailbox administration.
-7. Scheduled automations with audit logs.
+7. ✅ Persistent Customer Growth Graph, audit logs and durable approval execution state.
 8. Provider/model routing with cost and quality controls.
 9. Role-based permissions for administrators and operators.
 10. Observability, rate limiting and security event logging.
