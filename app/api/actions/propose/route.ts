@@ -6,6 +6,8 @@ const TYPES = new Set<ProposedActionType>([
   'send_email',
   'forward_email',
   'create_forward_rule',
+  'edit_forward_rule',
+  'delete_forward_rule',
   'create_campaign',
   'create_mailbox',
   'change_mail_setting',
