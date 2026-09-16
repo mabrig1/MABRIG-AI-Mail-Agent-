@@ -7,6 +7,8 @@ export type GrowthJourneyStatus =
   | 'draft'
   | 'approval-staged'
   | 'approved-awaiting-executor'
+  | 'scheduled'
+  | 'execution-failed'
   | 'dismissed'
 
 const COLLECTION = 'growth_journeys'
