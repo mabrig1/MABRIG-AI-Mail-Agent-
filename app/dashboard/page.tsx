@@ -4,6 +4,7 @@ import { CustomerGrowthGraph } from '@/components/customer-growth-graph'
 import { GrowthAutopilot } from '@/components/growth-autopilot'
 import { CampaignIntelligence } from '@/components/campaign-intelligence'
 import { ConversionGateway } from '@/components/conversion-gateway'
+import { AttributionSdk } from '@/components/attribution-sdk'
 import { LeadIntelligence } from '@/components/lead-intelligence'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { ForwardingStudio } from '@/components/forwarding-studio'
@@ -59,6 +60,7 @@ export default async function DashboardPage() {
       <BusinessGrowthStudio />
       <GrowthAutopilot />
       <CampaignIntelligence />
+      <AttributionSdk />
       <ConversionGateway />
       <CustomerGrowthGraph />
       <LeadIntelligence />
