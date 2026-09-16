@@ -28,6 +28,11 @@ export async function GET() {
       process.env.ADMIN_EMAIL &&
       process.env.ADMIN_PASSWORD_SHA256
     ),
+    mailBridgeAuthConfigured: Boolean(
+      process.env.BILLIONMAIL_API_TOKEN ||
+      (process.env.BILLIONMAIL_USERNAME && process.env.BILLIONMAIL_PASSWORD)
+    ),
+    forwardingExecutionEnabled: process.env.FORWARDING_EXECUTION_ENABLED === 'true',
     mail,
   })
 }
