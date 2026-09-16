@@ -48,6 +48,17 @@ export async function GET() {
         90,
       ),
     },
+    attributionSdk: {
+      configured: Boolean(process.env.ATTRIBUTION_SECRET),
+      tokenTtlDays: Math.min(
+        Math.max(Number(process.env.ATTRIBUTION_TOKEN_TTL_DAYS ?? 30), 1),
+        90,
+      ),
+      sdkPath: '/mabrig-attribution.js',
+      defaultCampaignUrlConfigured: Boolean(process.env.CAMPAIGN_DEFAULT_CTA_URL),
+      unsignedProviderAttributionAllowed:
+        process.env.ALLOW_UNSIGNED_PROVIDER_ATTRIBUTION === 'true',
+    },
     conversionGateway: {
       genericConfigured: Boolean(process.env.CONVERSION_INGEST_SECRET),
       paystackConfigured: Boolean(process.env.PAYSTACK_SECRET_KEY),
