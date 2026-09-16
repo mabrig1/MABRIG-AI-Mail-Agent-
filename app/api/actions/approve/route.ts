@@ -7,6 +7,7 @@ import {
   markApprovalFailed,
 } from '@/lib/execution-store'
 import { writeAuditEvent } from '@/lib/audit'
+import { updateGrowthJourneyStatus } from '@/lib/growth-autopilot'
 import {
   executeForwardingAction,
   FORWARDING_RULE_ACTIONS,
@@ -125,6 +126,35 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ approved: true, executed: false, error: message }, { status: 502 })
     }
+  }
+
+  if (action.type === 'create_campaign' && action.details?.journeyId) {
+    await updateGrowthJourneyStatus(
+      action.details.journeyId,
+      'approved-awaiting-executor',
+      {
+        approvedAt: new Date(),
+        approvedBy: session.email,
+        approvalActionId: action.id,
+      },
+    )
+
+    await writeAuditEvent({
+      actor: session.email,
+      actionId: action.id,
+      actionType: action.type,
+      outcome: 'not-executed',
+      resource: action.details.journeyId,
+      detail: 'Growth journey approved; campaign executor is not connected',
+    })
+
+    return NextResponse.json({
+      approved: true,
+      executed: false,
+      action,
+      message:
+        'Growth journey approved and queued. No campaign was sent because the verified campaign executor is not connected yet.',
+    })
   }
 
   if (action.type === 'forward_email') {
