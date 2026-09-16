@@ -420,6 +420,28 @@ Paystack normally reports transaction amounts in currency subunits, so MABRIG di
 
 This gateway is an analytics/customer-growth ingestion layer. It does not fulfil orders, grant entitlements, or send marketing mail.
 
+## Cross-app MABRIG Growth Network
+
+MABRIG applications can report verified business outcomes to the central Growth Graph through the signed generic Conversion Gateway. Source applications use:
+
+```env
+MABRIG_GROWTH_BASE_URL=https://<deployed-growth-os>
+MABRIG_GROWTH_SHARED_SECRET=<same value as central CONVERSION_INGEST_SECRET>
+```
+
+The shared secret remains server-only. Each source app signs its own JSON payload with HMAC-SHA256 before sending it to `/api/conversions/generic`.
+
+Current adapters:
+
+- **BuildRx** — captures the signed first-party attribution token across navigation, includes it in both Paystack and Flutterwave checkout metadata, and reports a `purchase` only after BuildRx has verified/activated the Pro subscription. Webhook and callback retries are deduplicated centrally.
+- **Destiny Skills Bridge (DDEI)** — persists the signed attribution token with its Paystack subscription/payment record and reports verified course, certificate, subscription or sponsorship purchases only after DDEI's own amount/currency/status settlement passes.
+- **Mabrig Researcher Pro / Scholar** — persists attribution from the initial academic-service order; reports a `quote_request` when an attributable order is created and a `purchase` only after the order's Paystack payment is verified.
+- **AfrigrantPipeline** — preserves the signed token on the private consultancy case; reports a `quote_request` on consultancy intake and a `purchase` only when the creator's existing manual-payment action records an actual payment against an accepted quote.
+
+These adapters do not grant marketing consent. They only add factual lifecycle/business signals to the Growth Graph.
+
+The Conversion Gateway ledger also retains safe operational source metadata—source app, product/service, amount and currency—without storing raw provider payloads. The administrator dashboard groups recent events by connected source application so the MABRIG portfolio can be viewed as one growth network.
+
 ## Production topology
 
 Deploy this Next.js application independently from the underlying mail server. The AI/dashboard layer can run on Vercel, while SMTP/IMAP/Postfix/Dovecot/Rspamd/Postgres remain on a persistent Linux VPS running the MABRIG Mail/BillionMail stack.
@@ -444,9 +466,10 @@ Recommended public endpoints:
 9. ✅ Task-specific Campaign Intelligence, conservative revenue attribution and direct ROAS.
 10. ✅ Signed, idempotent conversion ingestion for generic apps, Paystack and Flutterwave.
 11. ✅ First-party signed Attribution SDK with approved CTA propagation and checkout metadata helpers.
-12. Provider/model routing with cost and quality controls.
-13. Role-based permissions for administrators and operators.
-14. Observability, rate limiting and security event logging.
+12. ✅ Cross-app Growth Network adapters for BuildRx, DDEI, Scholar and AfrigrantPipeline.
+13. Provider/model routing with cost and quality controls.
+14. Role-based permissions for administrators and operators.
+15. Observability, rate limiting and security event logging.
 
 ## Upstream mail engine
 
