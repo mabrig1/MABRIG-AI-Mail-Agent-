@@ -1,8 +1,8 @@
 import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import {
-  extractCampaignId,
   extractProduct,
+  resolveProviderCampaignId,
   ingestConversionEvent,
 } from '@/lib/conversion-ingestion'
 import { mongoConfigured } from '@/lib/mongodb'
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     const candidates = metadataCandidates(payload, data)
     const campaignId = candidates
-      .map(extractCampaignId)
+      .map(resolveProviderCampaignId)
       .find(Boolean)
     const product = candidates
       .map(extractProduct)
