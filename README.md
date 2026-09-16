@@ -35,7 +35,7 @@ The lead score does not infer protected traits, wealth, or hidden intent. It use
 
 ## Safety model
 
-The current release runs in **approval-controlled mode**. AI output can recommend or draft actions and signed action proposals expire after 15 minutes. Verified forwarding-rule operations have a real BillionMail executor, but that executor is disabled by default until `FORWARDING_EXECUTION_ENABLED=true`. Other external actions remain non-executing until dedicated adapters are connected. The production flow is:
+The current release runs in **approval-controlled mode**. AI output can recommend or draft actions and signed action proposals expire after 15 minutes. Verified forwarding-rule operations and journey-backed Growth Autopilot campaigns have real BillionMail executors, and both executors are disabled by default behind independent kill switches (`FORWARDING_EXECUTION_ENABLED` and `CAMPAIGN_EXECUTION_ENABLED`). Other external actions remain non-executing until dedicated adapters are connected. The production flow is:
 
 ```
 Inbox / Campaign -> Agent Router -> Signed Human Approval Gate -> MABRIG Mail
@@ -86,6 +86,17 @@ BILLIONMAIL_API_TOKEN=""
 BILLIONMAIL_USERNAME=""
 BILLIONMAIL_PASSWORD=""
 
+CAMPAIGN_EXECUTION_ENABLED="false"
+CAMPAIGN_SENDER=""
+CAMPAIGN_SENDER_NAME="MABRIG Technologies"
+CAMPAIGN_MAX_RECIPIENTS="1000"
+CAMPAIGN_START_DELAY_SECONDS="300"
+CAMPAIGN_THREADS="2"
+CAMPAIGN_WARMUP="true"
+CAMPAIGN_TRACK_OPEN="true"
+CAMPAIGN_TRACK_CLICK="true"
+CAMPAIGN_REQUIRE_DNS_PASS="true"
+
 FORWARDING_EXECUTION_ENABLED="false"
 FORWARDING_ALLOW_EXTERNAL="false"
 FORWARDING_ALLOWED_SOURCE_DOMAINS="mabrigmail.online"
@@ -127,7 +138,7 @@ Use long random values for `AUTH_SECRET` and `APPROVAL_SECRET`.
 
 `POST /api/actions/propose` creates a signed, expiring proposal for `send_email`, `forward_email`, `create_forward_rule`, `create_campaign`, `create_mailbox`, or `change_mail_setting`.
 
-`POST /api/actions/approve` validates human approval and dispatches only action types with a registered executor. `create_forward_rule`, `edit_forward_rule`, and `delete_forward_rule` can execute against BillionMail when the forwarding execution gate is enabled. Other action types remain approval-only.
+`POST /api/actions/approve` validates human approval and dispatches only action types with a registered executor. `create_forward_rule`, `edit_forward_rule`, and `delete_forward_rule` can execute against BillionMail when the forwarding execution gate is enabled. Journey-backed `create_campaign` actions can create a native BillionMail marketing task when `CAMPAIGN_EXECUTION_ENABLED=true`. Generic campaign proposals without a Growth Autopilot journey remain approval-only.
 
 ## Forwarding API
 
@@ -195,7 +206,7 @@ Passwords, API tokens, bearer tokens and raw email bodies are intentionally excl
 
 `POST /api/marketing/lead-score` applies transparent deterministic lead scoring to supplied engagement signals and then asks the Sales Opportunity Agent for a cautious next-best action and follow-up draft. If a contact email is supplied and MongoDB is configured, the assessment is persisted into Opportunity Radar.
 
-The Growth Studio can stage the resulting plan as a signed `create_campaign` proposal. Campaign execution is still approval-only until a verified campaign executor is connected to the underlying mail platform.
+The Growth Studio can stage the resulting plan as a signed `create_campaign` proposal. Generic Growth Studio proposals remain planning-only. Growth Autopilot journey proposals use the verified BillionMail campaign executor described below.
 
 ## Growth Graph APIs
 
@@ -221,9 +232,39 @@ The database decides whether a segment qualifies. AI receives only the segment d
 
 Each generated journey is stored with a lifecycle:
 
-`draft → approval-staged → approved-awaiting-executor`
+`draft → approval-staged → approved-awaiting-executor` (execution disabled) **or** `draft → approval-staged → scheduled` (execution enabled)
 
-or it can be dismissed. A signed administrator approval is required before a journey can move into the approved state. Approval still does **not** send a campaign until a verified campaign executor is connected.
+or it can be dismissed. A signed administrator approval is required before a journey can move into an approved or scheduled state. If execution is disabled, the approved copy and hashed audience snapshot are preserved and can later be re-staged for a fresh signed execution approval without widening the audience.
+
+### Verified BillionMail campaign executor
+
+Growth Autopilot uses BillionMail's native marketing-task workflow rather than the lower-level raw batch-send endpoint.
+
+The server-side executor performs this sequence only after a valid signed human approval:
+
+1. Recompute the current deterministic Growth Graph segment.
+2. Keep only recipients whose email hash was present in the approval snapshot.
+3. Remove anyone who is no longer permissioned or eligible.
+4. Run a sender-domain DNS preflight (MX/SPF/DMARC) when `CAMPAIGN_REQUIRE_DNS_PASS=true`.
+5. Create a dedicated BillionMail contact group through `/api/contact/group/create`.
+6. Import the approved-current recipients through `/api/contact/group/import`.
+7. Create a sanitized HTML template through `/api/email_template/create`.
+8. Create a native scheduled marketing task through `/api/batch_mail/task/create`.
+
+BillionMail then handles recipient records, unsubscribe links, warmup association, open/click tracking (when enabled), scheduling and task analytics.
+
+The executor binds approval to:
+
+- a SHA-256 digest of the generated campaign copy;
+- a SHA-256 fingerprint of the audience snapshot;
+- hashed recipient membership stored with the journey;
+- the signed journey/action ID.
+
+Recipients may be removed after approval (for example after unsubscribe), but new recipients cannot be silently added to that approval.
+
+`CAMPAIGN_START_DELAY_SECONDS` defaults to 300 seconds so the approved task is created slightly ahead of its scheduled send time. BillionMail's task worker only processes tasks after their `start_time` has arrived.
+
+The campaign executor is disabled by default. Set `CAMPAIGN_EXECUTION_ENABLED=true` only after the sender mailbox, DNS, BillionMail bridge and MongoDB persistence are configured and verified.
 
 ### Scheduled Autopilot scan
 
@@ -261,14 +302,14 @@ Recommended public endpoints:
 1. ✅ Authenticated MABRIG Mail admin workspace.
 2. Read-only inbox connector and thread summarisation.
 3. ✅ Signed approval-queued action workflow.
-4. ✅ Business Growth OS, campaign planning and lead intelligence; campaign execution remains pending.
+4. ✅ Business Growth OS, campaign planning, lead intelligence and verified approval-controlled BillionMail campaign execution.
 5. ✅ Deliverability checks and DNS diagnostics.
 6. Forwarding-rule administration and multi-domain mailbox administration.
 7. ✅ Persistent Customer Growth Graph, audit logs and durable approval execution state.
 8. ✅ Approval-controlled Growth Autopilot with scheduled draft scans.
 9. Provider/model routing with cost and quality controls.
-9. Role-based permissions for administrators and operators.
-10. Observability, rate limiting and security event logging.
+10. Role-based permissions for administrators and operators.
+11. Observability, rate limiting and security event logging.
 
 ## Upstream mail engine
 
