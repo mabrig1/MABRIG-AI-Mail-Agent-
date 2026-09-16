@@ -24,13 +24,18 @@ export function parseForwardTargets(value: string) {
   )
 }
 
-export function validateForwardingRule(addressInput: string, gotoInput: string) {
+export function validateForwardingSource(addressInput: string) {
   const address = addressInput.trim().toLowerCase()
-  const targets = parseForwardTargets(gotoInput)
-
   if (!EMAIL_RE.test(address)) {
     throw new Error('Forwarding source must be a valid email address.')
   }
+
+  return { address, sourceDomain, allowedSources }
+}
+
+export function validateForwardingRule(addressInput: string, gotoInput: string) {
+  const { address, sourceDomain, allowedSources } = validateForwardingSource(addressInput)
+  const targets = parseForwardTargets(gotoInput)
 
   if (!targets.length) {
     throw new Error('At least one forwarding destination is required.')
