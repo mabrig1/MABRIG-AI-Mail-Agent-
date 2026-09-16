@@ -8,10 +8,18 @@ import {
 import { getDatabase, mongoConfigured } from '@/lib/mongodb'
 
 const COLLECTION = 'approval_executions'
+let indexesReady: Promise<void> | null = null
+
+async function ensureIndexesOnce() {
+  if (!mongoConfigured()) return
+  if (!indexesReady) indexesReady = ensureApprovalIndexes()
+  await indexesReady
+}
 
 export async function claimApprovalExecution(action: ProposedAction, actor: string) {
   if (!mongoConfigured()) return beginInMemory(action.id)
 
+  await ensureIndexesOnce()
   const db = await getDatabase()
 
   try {
