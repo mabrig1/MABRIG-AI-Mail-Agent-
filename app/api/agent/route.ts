@@ -2,7 +2,15 @@ import { NextResponse } from 'next/server'
 import { AgentKind, runAgent } from '@/lib/agent'
 import { getAdminSession } from '@/lib/auth-server'
 
-const ALLOWED = new Set<AgentKind>(['triage', 'reply', 'campaign', 'deliverability', 'operator'])
+const ALLOWED = new Set<AgentKind>([
+  'triage',
+  'reply',
+  'campaign',
+  'deliverability',
+  'operator',
+  'forward',
+  'routing',
+])
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const output = await runAgent(agent, input)
-    return NextResponse.json({ agent, output, actionMode: 'draft-only' })
+    return NextResponse.json({ agent, output, actionMode: 'approval-controlled' })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Agent request failed.'
     return NextResponse.json({ error: message }, { status: 500 })
