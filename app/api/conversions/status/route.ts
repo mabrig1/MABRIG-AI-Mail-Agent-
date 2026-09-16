@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-server'
-import { listRecentConversionEvents } from '@/lib/conversion-ingestion'
+import {
+  getConversionNetworkSummary,
+  listRecentConversionEvents,
+} from '@/lib/conversion-ingestion'
 import { mongoConfigured } from '@/lib/mongodb'
 
 export async function GET() {
@@ -24,10 +27,17 @@ export async function GET() {
   }
 
   try {
-    const events = await listRecentConversionEvents(40)
+    const [events, network] = await Promise.all([
+      listRecentConversionEvents(40),
+      getConversionNetworkSummary(),
+    ])
     return NextResponse.json({
       configured: true,
       integrations,
+      network: network.map(source => ({
+        ...source,
+        lastEventAt: source.lastEventAt?.toISOString() ?? null,
+      })),
       endpoints: {
         generic: '/api/conversions/generic',
         paystack: '/api/conversions/paystack',
