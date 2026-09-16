@@ -2,6 +2,8 @@ import { createHmac, randomUUID, timingSafeEqual } from 'crypto'
 
 export type ProposedActionType =
   | 'send_email'
+  | 'forward_email'
+  | 'create_forward_rule'
   | 'create_campaign'
   | 'create_mailbox'
   | 'change_mail_setting'
@@ -10,6 +12,7 @@ export type ProposedAction = {
   id: string
   type: ProposedActionType
   summary: string
+  details?: Record<string, string>
   createdAt: number
   expiresAt: number
 }
@@ -28,13 +31,18 @@ function equal(a: string, b: string) {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-export function createApprovalToken(type: ProposedActionType, summary: string) {
+export function createApprovalToken(
+  type: ProposedActionType,
+  summary: string,
+  details?: Record<string, string>,
+) {
   if (!approvalSecret()) throw new Error('APPROVAL_SECRET or AUTH_SECRET is required')
   const now = Math.floor(Date.now() / 1000)
   const action: ProposedAction = {
     id: randomUUID(),
     type,
-    summary: summary.slice(0, 500),
+    summary: summary.slice(0, 1000),
+    details,
     createdAt: now,
     expiresAt: now + 15 * 60,
   }
