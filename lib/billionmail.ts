@@ -204,3 +204,102 @@ export async function checkMailServerReachability() {
     return { configured: true, reachable: false }
   }
 }
+
+
+type CreateGroupData = { group_id: number }
+type ImportContactsData = { imported_count: number }
+type CreateTemplateData = { id: number }
+type CreateTaskData = { id: number }
+
+export async function createContactGroup(input: {
+  name: string
+  description: string
+}) {
+  return billionMailRequest<CreateGroupData>('/contact/group/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      create_type: 1,
+      name: input.name,
+      description: input.description,
+      double_optin: 0,
+    }),
+  })
+}
+
+export async function importContactsToGroup(groupId: number, recipients: string[]) {
+  return billionMailRequest<ImportContactsData>('/contact/group/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      group_ids: [groupId],
+      contacts: recipients.join('\n'),
+      import_type: 2,
+      default_active: 1,
+      status: 1,
+      overwrite: 0,
+    }),
+  })
+}
+
+export async function deleteContactGroup(groupId: number) {
+  return billionMailRequest('/contact/group/delete', {
+    method: 'POST',
+    body: JSON.stringify({ group_ids: [groupId] }),
+  })
+}
+
+export async function createEmailTemplate(input: {
+  name: string
+  html: string
+}) {
+  return billionMailRequest<CreateTemplateData>('/email_template/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      temp_name: input.name,
+      add_type: 0,
+      html_content: input.html,
+      drag_data: '',
+    }),
+  })
+}
+
+export async function deleteEmailTemplate(templateId: number) {
+  return billionMailRequest('/email_template/delete', {
+    method: 'POST',
+    body: JSON.stringify({ id: templateId }),
+  })
+}
+
+export async function createMarketingTask(input: {
+  addresser: string
+  fullName?: string
+  subject: string
+  groupId: number
+  templateId: number
+  startTime: number
+  threads?: number
+  warmup?: number
+  trackOpen?: number
+  trackClick?: number
+  remark?: string
+}) {
+  return billionMailRequest<CreateTaskData>('/batch_mail/task/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      addresser: input.addresser,
+      full_name: input.fullName ?? '',
+      subject: input.subject,
+      group_id: input.groupId,
+      template_id: input.templateId,
+      is_record: 1,
+      unsubscribe: 1,
+      threads: input.threads ?? 2,
+      track_open: input.trackOpen ?? 1,
+      track_click: input.trackClick ?? 1,
+      start_time: input.startTime,
+      warmup: input.warmup ?? 1,
+      remark: input.remark ?? '',
+      tag_ids: [],
+      tag_logic: 'AND',
+    }),
+  })
+}
