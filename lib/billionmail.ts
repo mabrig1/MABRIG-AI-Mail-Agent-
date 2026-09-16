@@ -91,7 +91,7 @@ async function loginForToken() {
 
 async function authorizationToken() {
   const staticToken = process.env.BILLIONMAIL_API_TOKEN
-  if (staticToken) return staticToken
+  if (staticToken) return staticToken.replace(/^Bearer\\s+/i, '').trim()
 
   if (cachedToken && cachedToken.expiresAt > Date.now()) {
     return cachedToken.token
