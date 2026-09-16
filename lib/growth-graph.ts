@@ -107,16 +107,16 @@ export async function upsertGrowthContact(input: ContactInput) {
     update.consentSource = (input.consentSource || 'admin').trim().slice(0, 120)
   }
 
+  const setOnInsert: Record<string, unknown> = { createdAt: now }
+  if (input.lifecycleStage === undefined) setOnInsert.lifecycleStage = 'prospect'
+  if (input.marketingConsent === undefined) setOnInsert.marketingConsent = false
+  if (input.tags === undefined) setOnInsert.tags = []
+
   await db.collection(CONTACTS).updateOne(
     { email },
     {
       $set: update,
-      $setOnInsert: {
-        createdAt: now,
-        lifecycleStage: input.lifecycleStage ?? 'prospect',
-        marketingConsent: input.marketingConsent ?? false,
-        tags: cleanTags(input.tags),
-      },
+      $setOnInsert: setOnInsert,
     },
     { upsert: true },
   )
