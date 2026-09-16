@@ -48,6 +48,16 @@ export async function GET() {
         90,
       ),
     },
+    conversionGateway: {
+      genericConfigured: Boolean(process.env.CONVERSION_INGEST_SECRET),
+      paystackConfigured: Boolean(process.env.PAYSTACK_SECRET_KEY),
+      flutterwaveConfigured: Boolean(process.env.FLUTTERWAVE_SECRET_HASH),
+      endpoints: {
+        generic: '/api/conversions/generic',
+        paystack: '/api/conversions/paystack',
+        flutterwave: '/api/conversions/flutterwave',
+      },
+    },
     growthAutopilot: {
       cooldownDays: Math.max(Number(process.env.GROWTH_AUTOPILOT_COOLDOWN_DAYS ?? 7), 1),
       schedulerSecretConfigured: Boolean(
