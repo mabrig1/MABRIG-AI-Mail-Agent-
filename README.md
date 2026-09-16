@@ -97,6 +97,11 @@ CAMPAIGN_TRACK_OPEN="true"
 CAMPAIGN_TRACK_CLICK="true"
 CAMPAIGN_REQUIRE_DNS_PASS="true"
 CAMPAIGN_ATTRIBUTION_WINDOW_DAYS="14"
+CAMPAIGN_DEFAULT_CTA_URL=""
+
+ATTRIBUTION_SECRET=""
+ATTRIBUTION_TOKEN_TTL_DAYS="30"
+ALLOW_UNSIGNED_PROVIDER_ATTRIBUTION="false"
 
 CONVERSION_INGEST_SECRET=""
 PAYSTACK_SECRET_KEY=""
@@ -315,6 +320,46 @@ Campaign intelligence APIs:
 
 The daily Growth Autopilot cron also performs a read-only campaign-intelligence refresh. A metrics-sync failure does not grant send capability and does not bypass the human approval gate.
 
+## MABRIG Attribution SDK
+
+The first-party Attribution SDK closes the link between an approved email campaign and the Conversion Gateway without trusting a client-editable raw campaign ID.
+
+When `ATTRIBUTION_SECRET` is configured, MABRIG can create an HMAC-signed token containing the Growth Journey ID plus issued/expiry timestamps. The token is carried as the `mabrig_attribution` query parameter.
+
+The browser SDK is served from:
+
+`/mabrig-attribution.js`
+
+Install it on a landing page or checkout frontend:
+
+```html
+<script src="/mabrig-attribution.js" defer></script>
+```
+
+The SDK:
+
+- captures a signed `mabrig_attribution` token from the landing URL;
+- stores only that first-party campaign token in session/local storage and a SameSite=Lax first-party cookie;
+- injects the token into HTML forms as a hidden field;
+- exposes `window.MabrigAttribution.get()`;
+- exposes `decorateUrl(url)` for explicit link propagation;
+- exposes `paystackMetadata(existingMetadata)`;
+- exposes `flutterwaveMeta(existingMeta)`;
+- does not use device fingerprinting, third-party cookies, or hidden identity tracking.
+
+Provider webhooks verify the signed token before converting it into a direct campaign ID. Unsigned Paystack/Flutterwave campaign IDs are rejected by default. `ALLOW_UNSIGNED_PROVIDER_ATTRIBUTION=true` exists only as a legacy compatibility override.
+
+When both `CAMPAIGN_DEFAULT_CTA_URL` and `ATTRIBUTION_SECRET` are configured, new Growth Autopilot campaign drafts automatically place a signed attributed CTA URL inside the exact campaign HTML that is shown to the administrator and bound into the campaign approval digest.
+
+The administrator can also build one-off signed journey URLs with:
+
+- `POST /api/attribution/link`
+- `GET /api/attribution/status`
+
+Attribution tokens expire after `ATTRIBUTION_TOKEN_TTL_DAYS` (default 30, maximum 90).
+
+For Paystack, attach the SDK result inside the transaction `metadata` object. For Flutterwave, attach it inside the payment `meta` object.
+
 ## Automatic Conversion Gateway
 
 MABRIG can ingest real business outcomes automatically instead of relying on manual Growth Graph entry.
@@ -398,9 +443,10 @@ Recommended public endpoints:
 8. ✅ Approval-controlled Growth Autopilot with scheduled draft scans.
 9. ✅ Task-specific Campaign Intelligence, conservative revenue attribution and direct ROAS.
 10. ✅ Signed, idempotent conversion ingestion for generic apps, Paystack and Flutterwave.
-11. Provider/model routing with cost and quality controls.
-12. Role-based permissions for administrators and operators.
-13. Observability, rate limiting and security event logging.
+11. ✅ First-party signed Attribution SDK with approved CTA propagation and checkout metadata helpers.
+12. Provider/model routing with cost and quality controls.
+13. Role-based permissions for administrators and operators.
+14. Observability, rate limiting and security event logging.
 
 ## Upstream mail engine
 
