@@ -221,6 +221,7 @@ export async function POST(request: Request) {
       preheader: campaignDraft.preheader,
       bodyText: campaignDraft.bodyText,
       ctaText: campaignDraft.ctaText,
+      ctaUrl: campaignDraft.ctaUrl,
       digest: campaignDraft.digest,
     },
     audienceCount: recipients.length,
