@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-server'
 import { verifyApprovalToken } from '@/lib/approval'
+import {
+  beginApprovalExecution,
+  completeApprovalExecution,
+  failApprovalExecution,
+} from '@/lib/approval-replay'
+import { writeAuditEvent } from '@/lib/audit'
+import {
+  executeForwardingAction,
+  FORWARDING_RULE_ACTIONS,
+} from '@/lib/forwarding-executor'
 
 export async function POST(request: Request) {
-  if (!(await getAdminSession())) {
+  const session = await getAdminSession()
+  if (!session) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
   }
 
@@ -11,14 +22,118 @@ export async function POST(request: Request) {
   const action = body.token ? verifyApprovalToken(body.token) : null
 
   if (!action) {
+    writeAuditEvent({
+      actor: session.email,
+      actionType: 'unknown',
+      outcome: 'rejected',
+      detail: 'Invalid or expired approval token',
+    })
     return NextResponse.json({ error: 'Approval token is invalid or expired.' }, { status: 400 })
   }
 
-  // Deliberately no external side-effect yet. Real executors will be added per action type.
+  writeAuditEvent({
+    actor: session.email,
+    actionId: action.id,
+    actionType: action.type,
+    outcome: 'approved',
+    resource: action.details?.address || action.details?.recipient,
+  })
+
+  if (FORWARDING_RULE_ACTIONS.has(action.type)) {
+    if (process.env.FORWARDING_EXECUTION_ENABLED !== 'true') {
+      writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'not-executed',
+        resource: action.details?.address,
+        detail: 'FORWARDING_EXECUTION_ENABLED is not true',
+      })
+
+      return NextResponse.json({
+        approved: true,
+        executed: false,
+        action,
+        message:
+          'Approval recorded. Forwarding execution is disabled until FORWARDING_EXECUTION_ENABLED=true.',
+      })
+    }
+
+    if (!beginApprovalExecution(action.id)) {
+      return NextResponse.json(
+        { error: 'This approval is already executing or has already been executed.' },
+        { status: 409 },
+      )
+    }
+
+    try {
+      const result = await executeForwardingAction(action)
+      completeApprovalExecution(action.id, action.expiresAt)
+
+      writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'executed',
+        resource: result.resource,
+        detail: result.operation,
+      })
+
+      return NextResponse.json({
+        approved: true,
+        executed: true,
+        action,
+        result,
+        message: `Forwarding rule ${result.operation} successfully.`,
+      })
+    } catch (error) {
+      failApprovalExecution(action.id)
+      const message = error instanceof Error ? error.message : 'Forwarding action failed.'
+
+      writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'failed',
+        resource: action.details?.address,
+        detail: message,
+      })
+
+      return NextResponse.json({ approved: true, executed: false, error: message }, { status: 502 })
+    }
+  }
+
+  if (action.type === 'forward_email') {
+    writeAuditEvent({
+      actor: session.email,
+      actionId: action.id,
+      actionType: action.type,
+      outcome: 'not-executed',
+      resource: action.details?.recipient,
+      detail: 'One-time message forwarding executor is not connected',
+    })
+
+    return NextResponse.json({
+      approved: true,
+      executed: false,
+      action,
+      message:
+        'Forward approved, but one-time message forwarding remains disabled until a verified message-send executor is connected.',
+    })
+  }
+
+  writeAuditEvent({
+    actor: session.email,
+    actionId: action.id,
+    actionType: action.type,
+    outcome: 'not-executed',
+    detail: 'No executor registered for action type',
+  })
+
   return NextResponse.json({
     approved: true,
     executed: false,
     action,
-    message: 'Human approval recorded. No external mail action is wired to this endpoint yet.',
+    message: 'Human approval recorded. No external executor is registered for this action yet.',
   })
 }
