@@ -1,49 +1,27 @@
-import { AgentConsole } from '@/components/agent-console'
-
-const agents = [
-  ['Inbox Triage', 'Prioritise, summarise and route incoming mail.'],
-  ['Reply & Compose', 'Draft replies while keeping humans in control of sending.'],
-  ['Campaign Coach', 'Turn a goal into segments, subject lines and campaign copy.'],
-  ['Deliverability Guardian', 'Diagnose SPF, DKIM, DMARC, reputation and content risks.'],
-  ['Mail-Server Operator', 'Explain server state and propose safe operational actions.'],
-]
+import Link from 'next/link'
 
 export default function Home() {
   return (
-    <main className="shell">
-      <section className="hero">
+    <main className="shell landing">
+      <section className="hero landing-hero">
         <div>
           <p className="eyebrow">MABRIG TECHNOLOGIES</p>
-          <h1>MABRIG AI Mail Agent</h1>
+          <h1>AI-native email operations for MABRIG Mail.</h1>
           <p className="lede">
-            One control room for intelligent email operations across inboxes, campaigns,
-            deliverability and the MABRIG Mail server.
+            Triage inboxes, draft replies, design campaigns, diagnose deliverability and
+            supervise mail-server operations from one approval-controlled workspace.
           </p>
+          <div className="landing-actions">
+            <Link className="primary-link" href="/login">Admin sign in</Link>
+            <Link className="secondary-link" href="/dashboard">Open control room</Link>
+          </div>
         </div>
-        <div className="status"><span /> Human approval required before external actions</div>
-      </section>
-
-      <section className="grid">
-        {agents.map(([name, description]) => (
-          <article className="card" key={name}>
-            <h2>{name}</h2>
-            <p>{description}</p>
-          </article>
-        ))}
-      </section>
-
-      <AgentConsole />
-
-      <section className="architecture">
-        <h2>Production architecture</h2>
-        <div className="pipeline">
-          <span>Inbox / Campaign</span><b>→</b><span>Agent Router</span><b>→</b>
-          <span>Approval Gate</span><b>→</b><span>MABRIG Mail</span>
+        <div className="landing-panel">
+          <p className="eyebrow">AGENT TEAM</p>
+          <strong>5 specialist agents</strong>
+          <p>Inbox • Compose • Campaigns • Deliverability • Operations</p>
+          <div className="status"><span /> External actions require human approval</div>
         </div>
-        <p>
-          The AI layer never needs direct SMTP credentials. Mail-server access stays behind
-          a server-side bridge and can be restricted to the minimum actions required.
-        </p>
       </section>
     </main>
   )
