@@ -1,6 +1,7 @@
 import { AgentConsole } from '@/components/agent-console'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { ForwardingStudio } from '@/components/forwarding-studio'
+import { ForwardingRulesManager } from '@/components/forwarding-rules-manager'
 import { LogoutButton } from '@/components/logout-button'
 import { requireAdmin } from '@/lib/auth-server'
 
@@ -46,6 +47,7 @@ export default async function DashboardPage() {
 
       <AgentConsole />
       <ForwardingStudio />
+      <ForwardingRulesManager />
       <DeliverabilityChecker />
 
       <section className="architecture">
