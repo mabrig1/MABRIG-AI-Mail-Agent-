@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import { scanGrowthAutopilot } from '@/lib/growth-autopilot'
+import { syncCampaignIntelligenceBatch } from '@/lib/campaign-intelligence'
 import { mongoConfigured } from '@/lib/mongodb'
 
 function schedulerSecret() {
@@ -38,9 +39,31 @@ export async function GET(request: Request) {
 
   try {
     const result = await scanGrowthAutopilot({ force: false })
+
+    let intelligenceSync: {
+      synced: number
+      failed: number
+      error?: string
+    } = { synced: 0, failed: 0 }
+
+    try {
+      const intelligenceResults = await syncCampaignIntelligenceBatch(30)
+      intelligenceSync = {
+        synced: intelligenceResults.filter(item => item.ok === true).length,
+        failed: intelligenceResults.filter(item => item.ok !== true).length,
+      }
+    } catch (error) {
+      intelligenceSync = {
+        synced: 0,
+        failed: 0,
+        error: error instanceof Error ? error.message : 'Campaign intelligence sync failed.',
+      }
+    }
+
     return NextResponse.json({
       ok: true,
-      mode: 'draft-generation-only',
+      mode: 'draft-generation-plus-read-only-intelligence-sync',
+      intelligenceSync,
       ...result,
     })
   } catch (error) {
