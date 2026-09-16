@@ -44,6 +44,8 @@ export async function syncCampaignIntelligence(journeyId: string) {
   const billionMail = journey.billionMail as {
     taskId?: number
     scheduledStartTime?: number
+    recipientCount?: number
+    sender?: string
   } | undefined
 
   const taskId = Number(billionMail?.taskId ?? 0)
@@ -82,13 +84,14 @@ export async function syncCampaignIntelligence(journeyId: string) {
     spend?: { amount?: number; currency?: string; note?: string }
   } | undefined
 
+  const campaignDraft = journey.campaignDraft as { subject?: string } | undefined
   const status = taskStatus(Number(info.task_process ?? 0), Number(info.pause ?? 0))
   const intelligence = {
     taskId,
     taskStatus: status,
     taskProcess: Number(info.task_process ?? 0),
-    recipientCount: Number(info.recipient_count ?? billionMail?.taskId ?? 0),
-    subject: String(info.subject || journey.campaignDraft?.subject || ''),
+    recipientCount: Number(info.recipient_count ?? billionMail?.recipientCount ?? 0),
+    subject: String(info.subject || campaignDraft?.subject || ''),
     sender: String(info.addresser || billionMail?.sender || ''),
     syncedAt: new Date(),
     metrics: stats,
@@ -158,9 +161,15 @@ export async function recordCampaignSpend(input: {
     updatedAt: new Date(),
   }
 
+  const currentEconomics = (
+    typeof journey.economics === 'object' && journey.economics
+      ? journey.economics
+      : {}
+  ) as Record<string, unknown>
+
   await patchGrowthJourney(input.journeyId, {
     economics: {
-      ...(typeof journey.economics === 'object' && journey.economics ? journey.economics : {}),
+      ...currentEconomics,
       spend,
     },
   })
