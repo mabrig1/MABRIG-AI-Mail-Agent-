@@ -8,10 +8,14 @@ const agentOptions = [
   ['campaign', 'Campaign Coach'],
   ['deliverability', 'Deliverability Guardian'],
   ['operator', 'Mail-Server Operator'],
+  ['forward', 'Email Forwarding Agent'],
+  ['routing', 'Forwarding Rule Planner'],
 ]
 
 const actionOptions = [
   ['send_email', 'Send email'],
+  ['forward_email', 'Forward email'],
+  ['create_forward_rule', 'Create forwarding rule'],
   ['create_campaign', 'Create campaign'],
   ['create_mailbox', 'Create mailbox'],
   ['change_mail_setting', 'Change mail setting'],
