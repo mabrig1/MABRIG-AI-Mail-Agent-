@@ -11,6 +11,27 @@
 - **Mail-Server Operator** — explains likely server problems and proposes minimum-risk diagnostics.
 - **Email Forwarding Agent** — reviews a message against an explicitly supplied destination, drafts a forwarding note and flags privacy/confidentiality risks.
 - **Forwarding Rule Planner** — designs conservative recurring forwarding rules with exclusions, loop prevention and test steps.
+- **Business Promotion Strategist** — turns a business objective into positioning, offers, segments, promotion sequences, calls to action and measurable campaign goals.
+- **Growth Intelligence Agent** — identifies acquisition, activation, conversion, retention, referral and reactivation opportunities and proposes measurable experiments.
+- **Lifecycle Journey Architect** — builds permission-based prospect, onboarding, repeat-purchase, referral, loyalty and win-back journeys.
+- **Sales Opportunity Agent** — converts supplied engagement signals into a transparent opportunity assessment and next-best-action recommendation.
+
+## Business Growth OS — beyond traditional mail
+
+MABRIG is designed to do business work that a conventional mailbox does not perform:
+
+- **Goal-to-growth planning** — start with a business objective instead of an email subject line.
+- **Offer and positioning strategy** — turn a product/service into a clearer promotional proposition and CTA.
+- **AI audience strategy** — suggest useful segments and message angles from the supplied business context.
+- **Lifecycle journey design** — orchestrate prospect, conversion, onboarding, repeat purchase, referral, loyalty and win-back stages.
+- **Growth experiment planning** — propose acquisition, conversion, retention and referral experiments and state the metric each should influence.
+- **Lead opportunity scoring** — combine explicit engagement signals into a transparent deterministic score, then ask AI for the next best action.
+- **Referral, upsell and reactivation thinking** — treat existing customers as a growth channel instead of focusing only on one-time broadcasts.
+- **Local-market promotion** — include a market/location in the growth brief for locally relevant promotion ideas.
+- **Campaign approval workflow** — convert a generated growth plan into a signed `create_campaign` proposal while keeping external execution under human control.
+- **Mail + business intelligence in one workspace** — forwarding, deliverability and server operations live beside promotion and revenue workflows.
+
+The lead score does not infer protected traits, wealth, or hidden intent. It uses only explicit business-interaction signals supplied to the system, and the scoring reasons are shown to the administrator.
 
 ## Safety model
 
@@ -141,7 +162,15 @@ Example:
 }
 ```
 
-Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`.
+Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`, `promotion`, `growth`, `lifecycle`, `sales`.
+
+## Marketing APIs
+
+`POST /api/marketing/growth-plan` runs the Business Promotion, Growth Intelligence, Lifecycle and Sales agents in parallel against one business brief and returns a four-part growth system.
+
+`POST /api/marketing/lead-score` applies transparent deterministic lead scoring to supplied engagement signals and then asks the Sales Opportunity Agent for a cautious next-best action and follow-up draft.
+
+The Growth Studio can stage the resulting plan as a signed `create_campaign` proposal. Campaign execution is still approval-only until a verified campaign executor is connected to the underlying mail platform.
 
 ## Production topology
 
@@ -159,7 +188,7 @@ Recommended public endpoints:
 1. ✅ Authenticated MABRIG Mail admin workspace.
 2. Read-only inbox connector and thread summarisation.
 3. ✅ Signed approval-queued action workflow.
-4. Campaign creation and list segmentation.
+4. ✅ Business Growth OS, campaign planning and lead intelligence; campaign execution remains pending.
 5. ✅ Deliverability checks and DNS diagnostics.
 6. Forwarding-rule administration and multi-domain mailbox administration.
 7. Scheduled automations with audit logs.
