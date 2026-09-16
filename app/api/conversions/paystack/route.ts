@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import {
-  extractCampaignId,
   extractProduct,
+  resolveProviderCampaignId,
   ingestConversionEvent,
 } from '@/lib/conversion-ingestion'
 import { mongoConfigured } from '@/lib/mongodb'
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       name: name || undefined,
       amount: Number((rawAmount / divisor).toFixed(2)),
       currency: data.currency,
-      campaignId: extractCampaignId(data.metadata),
+      campaignId: resolveProviderCampaignId(data.metadata),
       product: extractProduct(data.metadata),
       reference,
       occurredAt: data.paid_at || data.created_at,
