@@ -77,6 +77,9 @@ APPROVAL_SECRET=""
 
 MONGODB_URI=""
 MONGODB_DB_NAME="mabrig_ai_mail"
+GROWTH_AUTOPILOT_COOLDOWN_DAYS="7"
+CRON_SECRET=""
+AUTOPILOT_CRON_SECRET=""
 
 BILLIONMAIL_BASE_URL=""
 BILLIONMAIL_API_TOKEN=""
@@ -165,7 +168,7 @@ Example:
 }
 ```
 
-Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`, `promotion`, `growth`, `lifecycle`, `sales`.
+Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`, `promotion`, `growth`, `lifecycle`, `sales`, `autopilot`.
 
 ## Customer Growth Graph
 
@@ -203,6 +206,45 @@ The Growth Studio can stage the resulting plan as a signed `create_campaign` pro
 
 MongoDB persistence also upgrades approval replay protection from process-local memory to an atomic database-backed exact-once claim, which is appropriate for multi-instance/serverless deployments.
 
+## Growth Autopilot
+
+Growth Autopilot turns the persistent Customer Growth Graph into an approval-controlled journey engine.
+
+It currently detects four deterministic opportunities:
+
+- **High-Intent Conversion** — permissioned contacts with recent reply, pricing or quote-request signals.
+- **Opportunity Radar Follow-Up** — permissioned contacts with stored transparent opportunity scores of 55+.
+- **Customer Reactivation** — permissioned customers whose latest recorded purchase is older than 90 days.
+- **Referral & Advocacy** — permissioned repeat customers with at least two recorded purchases.
+
+The database decides whether a segment qualifies. AI receives only the segment definition, eligible count, objective and operating constraints; individual customer identities are not required to design the journey.
+
+Each generated journey is stored with a lifecycle:
+
+`draft → approval-staged → approved-awaiting-executor`
+
+or it can be dismissed. A signed administrator approval is required before a journey can move into the approved state. Approval still does **not** send a campaign until a verified campaign executor is connected.
+
+### Scheduled Autopilot scan
+
+`GET /api/growth/journeys/autoscan` is a secret-protected, draft-generation-only scheduler endpoint.
+
+This repository includes a `vercel.json` cron schedule that calls the endpoint daily at **06:00 UTC / 07:00 Africa/Lagos**.
+
+Use Vercel's standard `CRON_SECRET` environment variable where available. `AUTOPILOT_CRON_SECRET` is accepted as a fallback for other schedulers.
+
+The scheduler can generate drafts only. It cannot stage, approve or send campaigns.
+
+The cooldown between active proposals for the same segment is controlled by `GROWTH_AUTOPILOT_COOLDOWN_DAYS` and defaults to 7 days.
+
+### Growth Autopilot APIs
+
+- `GET /api/growth/journeys` — list current journey proposals.
+- `POST /api/growth/journeys` — run an authenticated manual opportunity scan.
+- `POST /api/growth/journeys/stage` — create a signed campaign approval for a draft journey.
+- `POST /api/growth/journeys/dismiss` — dismiss a non-approved proposal.
+- `GET /api/growth/journeys/autoscan` — secret-protected scheduled draft scan.
+
 ## Production topology
 
 Deploy this Next.js application independently from the underlying mail server. The AI/dashboard layer can run on Vercel, while SMTP/IMAP/Postfix/Dovecot/Rspamd/Postgres remain on a persistent Linux VPS running the MABRIG Mail/BillionMail stack.
@@ -223,7 +265,8 @@ Recommended public endpoints:
 5. ✅ Deliverability checks and DNS diagnostics.
 6. Forwarding-rule administration and multi-domain mailbox administration.
 7. ✅ Persistent Customer Growth Graph, audit logs and durable approval execution state.
-8. Provider/model routing with cost and quality controls.
+8. ✅ Approval-controlled Growth Autopilot with scheduled draft scans.
+9. Provider/model routing with cost and quality controls.
 9. Role-based permissions for administrators and operators.
 10. Observability, rate limiting and security event logging.
 
