@@ -10,6 +10,10 @@ const agentOptions = [
   ['operator', 'Mail-Server Operator'],
   ['forward', 'Email Forwarding Agent'],
   ['routing', 'Forwarding Rule Planner'],
+  ['promotion', 'Business Promotion Strategist'],
+  ['growth', 'Growth Intelligence Agent'],
+  ['lifecycle', 'Lifecycle Journey Architect'],
+  ['sales', 'Sales Opportunity Agent'],
 ]
 
 const actionOptions = [
