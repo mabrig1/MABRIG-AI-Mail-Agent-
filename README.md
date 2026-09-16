@@ -12,10 +12,10 @@
 
 ## Safety model
 
-The current release runs in **draft-only mode**. AI output can recommend or draft actions, but external mail actions are not executed automatically. The intended production flow is:
+The current release runs in **approval-controlled mode**. AI output can recommend or draft actions, signed action proposals expire after 15 minutes, and external mail execution remains disabled until a real executor is connected. The production flow is:
 
 ```
-Inbox / Campaign -> Agent Router -> Human Approval Gate -> MABRIG Mail
+Inbox / Campaign -> Agent Router -> Signed Human Approval Gate -> MABRIG Mail
 ```
 
 This keeps credentials and consequential actions on the server side and makes later automation auditable.
@@ -47,6 +47,11 @@ Open `http://localhost:3000`.
 NEXT_PUBLIC_APP_NAME="MABRIG AI Mail Agent"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
+ADMIN_EMAIL=""
+ADMIN_PASSWORD_SHA256=""
+AUTH_SECRET=""
+APPROVAL_SECRET=""
+
 BILLIONMAIL_BASE_URL=""
 BILLIONMAIL_API_TOKEN=""
 MAIL_DOMAIN="mabrigmail.online"
@@ -65,7 +70,25 @@ The AI adapter accepts an OpenAI-compatible chat-completions endpoint so a provi
 
 `GET /api/health`
 
-Returns application status, whether an AI provider is configured, and whether the configured MABRIG Mail/BillionMail endpoint is reachable.
+Unauthenticated requests receive only basic service health. Authenticated administrators also receive AI configuration and MABRIG Mail/BillionMail reachability status.
+
+## Admin authentication
+
+The control room is at `/dashboard` and requires an administrator session. Store only the SHA-256 hash of the admin password in `ADMIN_PASSWORD_SHA256`.
+
+Example hash generation:
+
+```bash
+printf '%s' 'your-strong-password' | sha256sum
+```
+
+Use long random values for `AUTH_SECRET` and `APPROVAL_SECRET`.
+
+## Approval API
+
+`POST /api/actions/propose` creates a signed, expiring proposal for `send_email`, `create_campaign`, `create_mailbox`, or `change_mail_setting`.
+
+`POST /api/actions/approve` validates human approval but intentionally does **not** execute an external side effect yet.
 
 ## Agent API
 
@@ -95,9 +118,9 @@ Recommended public endpoints:
 
 ## Roadmap
 
-1. Authenticated MABRIG Mail admin workspace.
+1. ✅ Authenticated MABRIG Mail admin workspace.
 2. Read-only inbox connector and thread summarisation.
-3. Approval-queued reply/send workflow.
+3. ✅ Signed approval-queued action workflow.
 4. Campaign creation and list segmentation.
 5. Deliverability checks and DNS diagnostics.
 6. Multi-domain mailbox administration.
