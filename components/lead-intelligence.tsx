@@ -15,6 +15,8 @@ const signalLabels = [
 type SignalKey = typeof signalLabels[number][0]
 
 type Result = {
+  persisted?: boolean
+  persistenceWarning?: string
   assessment: {
     score: number
     band: string
@@ -26,6 +28,7 @@ type Result = {
 
 export function LeadIntelligence() {
   const [leadLabel, setLeadLabel] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [context, setContext] = useState('')
   const [days, setDays] = useState('0')
   const [signals, setSignals] = useState<Record<SignalKey, boolean>>({
@@ -52,6 +55,7 @@ export function LeadIntelligence() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         leadLabel,
+        contactEmail,
         context,
         signals: {
           ...signals,
@@ -78,6 +82,7 @@ export function LeadIntelligence() {
 
       <form className="lead-form" onSubmit={submit}>
         <input value={leadLabel} onChange={e => setLeadLabel(e.target.value)} placeholder="Lead / account label" />
+        <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="Contact email (optional, saves to Growth Graph)" />
         <input type="number" min="0" value={days} onChange={e => setDays(e.target.value)} placeholder="Days since last engagement" />
         <textarea value={context} onChange={e => setContext(e.target.value)} placeholder="What do you know from legitimate business interactions?" rows={4} />
         <div className="signal-grid">
@@ -112,6 +117,8 @@ export function LeadIntelligence() {
           <article className="lead-ai-note">
             <p className="eyebrow">AI NEXT-BEST ACTION</p>
             <pre>{result.recommendation}</pre>
+            {result.persisted && <p className="persist-note">Saved to Opportunity Radar.</p>}
+            {result.persistenceWarning && <p className="persist-note">Persistence warning: {result.persistenceWarning}</p>}
           </article>
         </div>
       )}
