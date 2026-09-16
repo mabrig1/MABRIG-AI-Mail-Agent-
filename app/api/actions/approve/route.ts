@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-server'
 import { verifyApprovalToken } from '@/lib/approval'
 import {
-  beginApprovalExecution,
-  completeApprovalExecution,
-  failApprovalExecution,
-} from '@/lib/approval-replay'
+  claimApprovalExecution,
+  markApprovalExecuted,
+  markApprovalFailed,
+} from '@/lib/execution-store'
 import { writeAuditEvent } from '@/lib/audit'
 import {
   executeForwardingAction,
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const action = body.token ? verifyApprovalToken(body.token) : null
 
   if (!action) {
-    writeAuditEvent({
+    await writeAuditEvent({
       actor: session.email,
       actionType: 'unknown',
       outcome: 'rejected',
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Approval token is invalid or expired.' }, { status: 400 })
   }
 
-  writeAuditEvent({
+  await writeAuditEvent({
     actor: session.email,
     actionId: action.id,
     actionType: action.type,
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   if (FORWARDING_RULE_ACTIONS.has(action.type)) {
     if (process.env.FORWARDING_EXECUTION_ENABLED !== 'true') {
-      writeAuditEvent({
+      await writeAuditEvent({
         actor: session.email,
         actionId: action.id,
         actionType: action.type,
@@ -59,7 +59,31 @@ export async function POST(request: Request) {
       })
     }
 
-    if (!beginApprovalExecution(action.id)) {
+    let claimed = false
+    try {
+      claimed = await claimApprovalExecution(action, session.email)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not claim approval execution.'
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'failed',
+        resource: action.details?.address,
+        detail: message,
+      })
+      return NextResponse.json({ error: message }, { status: 503 })
+    }
+
+    if (!claimed) {
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'rejected',
+        resource: action.details?.address,
+        detail: 'Duplicate approval execution attempt',
+      })
       return NextResponse.json(
         { error: 'This approval is already executing or has already been executed.' },
         { status: 409 },
@@ -68,9 +92,9 @@ export async function POST(request: Request) {
 
     try {
       const result = await executeForwardingAction(action)
-      completeApprovalExecution(action.id, action.expiresAt)
+      await markApprovalExecuted(action)
 
-      writeAuditEvent({
+      await writeAuditEvent({
         actor: session.email,
         actionId: action.id,
         actionType: action.type,
@@ -87,10 +111,10 @@ export async function POST(request: Request) {
         message: `Forwarding rule ${result.operation} successfully.`,
       })
     } catch (error) {
-      failApprovalExecution(action.id)
       const message = error instanceof Error ? error.message : 'Forwarding action failed.'
+      await markApprovalFailed(action, message)
 
-      writeAuditEvent({
+      await writeAuditEvent({
         actor: session.email,
         actionId: action.id,
         actionType: action.type,
@@ -104,7 +128,7 @@ export async function POST(request: Request) {
   }
 
   if (action.type === 'forward_email') {
-    writeAuditEvent({
+    await writeAuditEvent({
       actor: session.email,
       actionId: action.id,
       actionType: action.type,
@@ -122,7 +146,7 @@ export async function POST(request: Request) {
     })
   }
 
-  writeAuditEvent({
+  await writeAuditEvent({
     actor: session.email,
     actionId: action.id,
     actionType: action.type,
