@@ -15,6 +15,43 @@ function fingerprint(hashes: string[]) {
   return createHash('sha256').update(hashes.slice().sort().join('\n')).digest('hex')
 }
 
+type StoredCampaignDraft = {
+  subject: string
+  preheader: string
+  bodyText: string
+  ctaText: string
+  html: string
+  digest: string
+}
+
+function buildProposal(input: {
+  journeyId: string
+  title: string
+  segmentKey: string
+  segmentLabel: string
+  objective: string
+  campaignDraft: StoredCampaignDraft
+  audienceCount: number
+  audienceFingerprint: string
+}) {
+  const summary = [
+    input.title,
+    `Subject: ${input.campaignDraft.subject}`,
+    `Audience: ${input.segmentLabel} (${input.audienceCount} currently permissioned approved contacts)`,
+    `Objective: ${input.objective}`,
+    '',
+    input.campaignDraft.bodyText.slice(0, 500),
+  ].join('\n')
+
+  return createApprovalToken('create_campaign', summary, {
+    journeyId: input.journeyId,
+    segmentKey: input.segmentKey,
+    audienceCount: String(input.audienceCount),
+    audienceFingerprint: input.audienceFingerprint,
+    campaignDigest: input.campaignDraft.digest,
+  })
+}
+
 export async function POST(request: Request) {
   const session = await getAdminSession()
   if (!session) {
@@ -35,15 +72,78 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Growth journey was not found.' }, { status: 404 })
   }
 
+  const maxRecipients = Math.max(Number(process.env.CAMPAIGN_MAX_RECIPIENTS ?? 1000), 1)
+
+  if (journey.status === 'approved-awaiting-executor') {
+    const campaignDraft = journey.campaignDraft as StoredCampaignDraft | undefined
+    const approvedHashes = new Set(
+      Array.isArray(journey.approvedRecipientHashes)
+        ? journey.approvedRecipientHashes.map(value => String(value))
+        : [],
+    )
+    const audienceFingerprint = String(journey.approvedAudienceFingerprint || '')
+
+    if (!campaignDraft?.digest || !approvedHashes.size || !audienceFingerprint) {
+      return NextResponse.json(
+        { error: 'Approved campaign snapshot is incomplete and cannot be re-staged safely.' },
+        { status: 409 },
+      )
+    }
+
+    const currentlyEligible = await getSegmentRecipients(String(journey.segmentKey || ''))
+    const currentApprovedCount = currentlyEligible
+      .map(recipientHash)
+      .filter(hash => approvedHashes.has(hash)).length
+
+    if (currentApprovedCount <= 0) {
+      return NextResponse.json(
+        { error: 'No recipients from the approved snapshot remain permissioned and eligible.' },
+        { status: 409 },
+      )
+    }
+
+    const proposal = buildProposal({
+      journeyId: body.journeyId,
+      title: String(journey.title || 'Growth campaign'),
+      segmentKey: String(journey.segmentKey || ''),
+      segmentLabel: String(journey.segmentLabel || ''),
+      objective: String(journey.objective || ''),
+      campaignDraft,
+      audienceCount: currentApprovedCount,
+      audienceFingerprint,
+    })
+
+    await updateGrowthJourneyStatus(body.journeyId, 'approval-staged', {
+      approvalActionId: proposal.action.id,
+      restagedAt: new Date(),
+      stagedBy: session.email,
+    })
+
+    return NextResponse.json({
+      ...proposal,
+      status: 'awaiting-human-approval',
+      executable: process.env.CAMPAIGN_EXECUTION_ENABLED === 'true',
+      journeyId: body.journeyId,
+      campaignDraft: {
+        subject: campaignDraft.subject,
+        preheader: campaignDraft.preheader,
+        bodyText: campaignDraft.bodyText,
+        ctaText: campaignDraft.ctaText,
+        digest: campaignDraft.digest,
+      },
+      audienceCount: currentApprovedCount,
+      restaged: true,
+    })
+  }
+
   if (journey.status !== 'draft') {
     return NextResponse.json(
-      { error: 'Only draft journeys can be staged for approval.' },
+      { error: 'Only draft or approved-awaiting-executor journeys can be staged.' },
       { status: 409 },
     )
   }
 
   const recipients = await getSegmentRecipients(String(journey.segmentKey || ''))
-  const maxRecipients = Math.max(Number(process.env.CAMPAIGN_MAX_RECIPIENTS ?? 1000), 1)
 
   if (recipients.length === 0) {
     return NextResponse.json(
@@ -73,21 +173,15 @@ export async function POST(request: Request) {
   const recipientHashes = recipients.map(recipientHash).sort()
   const audienceFingerprint = fingerprint(recipientHashes)
 
-  const summary = [
-    String(journey.title || 'Growth campaign'),
-    `Subject: ${campaignDraft.subject}`,
-    `Audience: ${journey.segmentLabel} (${recipients.length} currently permissioned contacts)`,
-    `Objective: ${journey.objective}`,
-    '',
-    campaignDraft.bodyText.slice(0, 500),
-  ].join('\n')
-
-  const proposal = createApprovalToken('create_campaign', summary, {
+  const proposal = buildProposal({
     journeyId: body.journeyId,
+    title: String(journey.title || 'Growth campaign'),
     segmentKey: String(journey.segmentKey || ''),
-    audienceCount: String(recipients.length),
+    segmentLabel: String(journey.segmentLabel || ''),
+    objective: String(journey.objective || ''),
+    campaignDraft,
+    audienceCount: recipients.length,
     audienceFingerprint,
-    campaignDigest: campaignDraft.digest,
   })
 
   await updateGrowthJourneyStatus(body.journeyId, 'approval-staged', {
