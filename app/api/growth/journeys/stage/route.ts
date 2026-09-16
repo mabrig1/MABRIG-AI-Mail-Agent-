@@ -2,6 +2,11 @@ import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-server'
 import { createApprovalToken } from '@/lib/approval'
+import {
+  addAttributionToUrl,
+  attributionConfigured,
+  createAttributionToken,
+} from '@/lib/attribution'
 import { composeCampaignDraft } from '@/lib/campaign-draft'
 import { getGrowthJourney, updateGrowthJourneyStatus } from '@/lib/growth-autopilot'
 import { getSegmentRecipients } from '@/lib/growth-graph'
@@ -20,6 +25,7 @@ type StoredCampaignDraft = {
   preheader: string
   bodyText: string
   ctaText: string
+  ctaUrl?: string
   html: string
   digest: string
 }
@@ -129,6 +135,7 @@ export async function POST(request: Request) {
         preheader: campaignDraft.preheader,
         bodyText: campaignDraft.bodyText,
         ctaText: campaignDraft.ctaText,
+        ctaUrl: campaignDraft.ctaUrl,
         digest: campaignDraft.digest,
       },
       audienceCount: currentApprovedCount,
@@ -162,12 +169,22 @@ export async function POST(request: Request) {
     )
   }
 
+  const defaultCtaUrl = process.env.CAMPAIGN_DEFAULT_CTA_URL?.trim() || ''
+  const attributedCtaUrl =
+    defaultCtaUrl && attributionConfigured()
+      ? addAttributionToUrl(
+          defaultCtaUrl,
+          createAttributionToken(body.journeyId),
+        )
+      : undefined
+
   const campaignDraft = await composeCampaignDraft({
     title: String(journey.title || 'Growth campaign'),
     objective: String(journey.objective || ''),
     segmentLabel: String(journey.segmentLabel || ''),
     segmentDefinition: String(journey.segmentDefinition || ''),
     plan: String(journey.plan || ''),
+    ctaUrl: attributedCtaUrl,
   })
 
   const recipientHashes = recipients.map(recipientHash).sort()
