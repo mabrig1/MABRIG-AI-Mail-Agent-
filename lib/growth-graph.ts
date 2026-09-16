@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { ObjectId } from 'mongodb'
 import { getDatabase } from '@/lib/mongodb'
 
@@ -77,7 +78,9 @@ export async function ensureGrowthGraphIndexes() {
     db.collection(CONTACTS).createIndex({ marketingConsent: 1, lifecycleStage: 1 }),
     db.collection(INTERACTIONS).createIndex({ email: 1, occurredAt: -1 }),
     db.collection(INTERACTIONS).createIndex({ type: 1, occurredAt: -1 }),
+    db.collection(INTERACTIONS).createIndex({ campaignId: 1, occurredAt: -1 }),
     db.collection(PURCHASES).createIndex({ email: 1, occurredAt: -1 }),
+    db.collection(PURCHASES).createIndex({ campaignId: 1, occurredAt: -1 }),
     db.collection(OPPORTUNITIES).createIndex({ email: 1 }, { unique: true }),
     db.collection(OPPORTUNITIES).createIndex({ score: -1, updatedAt: -1 }),
   ])
@@ -163,6 +166,7 @@ export async function recordGrowthInteraction(input: InteractionInput) {
       currency: event.currency,
       product: event.product,
       source: event.source,
+      campaignId: event.campaignId,
       occurredAt,
       createdAt: new Date(),
     })
@@ -431,4 +435,139 @@ export async function getSegmentRecipients(segmentKey: string) {
   }
 
   throw new Error('Unsupported growth segment.')
+}
+
+
+function attributionEmailHash(email: string) {
+  return createHash('sha256').update(email.trim().toLowerCase()).digest('hex')
+}
+
+type RevenueByCurrency = Record<string, number>
+
+function addRevenue(target: RevenueByCurrency, currency: unknown, value: unknown) {
+  const amount = Number(value ?? 0)
+  if (!Number.isFinite(amount) || amount <= 0) return
+
+  const code = String(currency || 'UNSPECIFIED').trim().toUpperCase().slice(0, 12) || 'UNSPECIFIED'
+  target[code] = Number(((target[code] ?? 0) + amount).toFixed(2))
+}
+
+export async function getCampaignAttributionSummary(input: {
+  journeyId: string
+  taskId: number
+  approvedRecipientHashes: string[]
+  startedAt: Date
+  windowDays?: number
+}) {
+  const db = await getDatabase()
+  const days = Math.min(Math.max(Number(input.windowDays ?? 14), 1), 90)
+  const windowEnd = new Date(
+    Math.min(
+      Date.now(),
+      input.startedAt.getTime() + days * 24 * 60 * 60 * 1000,
+    ),
+  )
+
+  const aliases = [
+    input.journeyId,
+    String(input.taskId),
+    `bm:${input.taskId}`,
+    `task:${input.taskId}`,
+  ]
+
+  const eventTypes: InteractionType[] = [
+    'purchase',
+    'email_reply',
+    'quote_request',
+    'referral',
+  ]
+
+  const events = await db.collection(INTERACTIONS)
+    .find({
+      type: { $in: eventTypes },
+      occurredAt: { $gte: input.startedAt, $lte: windowEnd },
+    })
+    .project({
+      email: 1,
+      type: 1,
+      campaignId: 1,
+      value: 1,
+      currency: 1,
+      occurredAt: 1,
+    })
+    .toArray()
+
+  const approvedHashes = new Set(input.approvedRecipientHashes)
+  const directRevenue: RevenueByCurrency = {}
+  const assistedRevenue: RevenueByCurrency = {}
+
+  let directPurchases = 0
+  let directReplies = 0
+  let directQuoteRequests = 0
+  let directReferrals = 0
+
+  let assistedPurchases = 0
+  let assistedReplies = 0
+  let assistedQuoteRequests = 0
+  let assistedReferrals = 0
+
+  for (const event of events) {
+    const campaignId = typeof event.campaignId === 'string' ? event.campaignId.trim() : ''
+    const isDirect = aliases.includes(campaignId)
+
+    if (isDirect) {
+      if (event.type === 'purchase') {
+        directPurchases += 1
+        addRevenue(directRevenue, event.currency, event.value)
+      } else if (event.type === 'email_reply') {
+        directReplies += 1
+      } else if (event.type === 'quote_request') {
+        directQuoteRequests += 1
+      } else if (event.type === 'referral') {
+        directReferrals += 1
+      }
+      continue
+    }
+
+    // Do not claim assisted credit for an event explicitly linked to another campaign.
+    if (campaignId) continue
+
+    const email = typeof event.email === 'string' ? event.email : ''
+    if (!email || !approvedHashes.has(attributionEmailHash(email))) continue
+
+    if (event.type === 'purchase') {
+      assistedPurchases += 1
+      addRevenue(assistedRevenue, event.currency, event.value)
+    } else if (event.type === 'email_reply') {
+      assistedReplies += 1
+    } else if (event.type === 'quote_request') {
+      assistedQuoteRequests += 1
+    } else if (event.type === 'referral') {
+      assistedReferrals += 1
+    }
+  }
+
+  return {
+    attributionWindowDays: days,
+    windowStart: input.startedAt.toISOString(),
+    windowEnd: windowEnd.toISOString(),
+    direct: {
+      purchases: directPurchases,
+      replies: directReplies,
+      quoteRequests: directQuoteRequests,
+      referrals: directReferrals,
+      revenueByCurrency: directRevenue,
+      methodology:
+        'Explicit attribution only: the recorded business event campaignId matches this journey or BillionMail task.',
+    },
+    assisted: {
+      purchases: assistedPurchases,
+      replies: assistedReplies,
+      quoteRequests: assistedQuoteRequests,
+      referrals: assistedReferrals,
+      revenueByCurrency: assistedRevenue,
+      methodology:
+        'Post-send cohort assistance only: the event occurred inside the attribution window for a recipient from the approved audience and had no campaignId. This is not proof that the campaign caused the event.',
+    },
+  }
 }
