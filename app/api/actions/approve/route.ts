@@ -8,6 +8,7 @@ import {
 } from '@/lib/execution-store'
 import { writeAuditEvent } from '@/lib/audit'
 import { updateGrowthJourneyStatus } from '@/lib/growth-autopilot'
+import { executeGrowthCampaign } from '@/lib/campaign-executor'
 import {
   executeForwardingAction,
   FORWARDING_RULE_ACTIONS,
@@ -129,32 +130,94 @@ export async function POST(request: Request) {
   }
 
   if (action.type === 'create_campaign' && action.details?.journeyId) {
-    await updateGrowthJourneyStatus(
-      action.details.journeyId,
-      'approved-awaiting-executor',
-      {
-        approvedAt: new Date(),
-        approvedBy: session.email,
-        approvalActionId: action.id,
-      },
-    )
+    if (process.env.CAMPAIGN_EXECUTION_ENABLED !== 'true') {
+      await updateGrowthJourneyStatus(
+        action.details.journeyId,
+        'approved-awaiting-executor',
+        {
+          approvedAt: new Date(),
+          approvedBy: session.email,
+          approvalActionId: action.id,
+        },
+      )
 
-    await writeAuditEvent({
-      actor: session.email,
-      actionId: action.id,
-      actionType: action.type,
-      outcome: 'not-executed',
-      resource: action.details.journeyId,
-      detail: 'Growth journey approved; campaign executor is not connected',
-    })
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'not-executed',
+        resource: action.details.journeyId,
+        detail: 'CAMPAIGN_EXECUTION_ENABLED is not true',
+      })
 
-    return NextResponse.json({
-      approved: true,
-      executed: false,
-      action,
-      message:
-        'Growth journey approved and queued. No campaign was sent because the verified campaign executor is not connected yet.',
-    })
+      return NextResponse.json({
+        approved: true,
+        executed: false,
+        action,
+        message:
+          'Growth journey approved and queued. Campaign execution remains disabled until CAMPAIGN_EXECUTION_ENABLED=true.',
+      })
+    }
+
+    let claimed = false
+    try {
+      claimed = await claimApprovalExecution(action, session.email)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not claim campaign approval execution.'
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'failed',
+        resource: action.details.journeyId,
+        detail: message,
+      })
+      return NextResponse.json({ error: message }, { status: 503 })
+    }
+
+    if (!claimed) {
+      return NextResponse.json(
+        { error: 'This campaign approval is already executing or has already been executed.' },
+        { status: 409 },
+      )
+    }
+
+    try {
+      const result = await executeGrowthCampaign(action)
+      await markApprovalExecuted(action)
+
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'executed',
+        resource: action.details.journeyId,
+        detail: `BillionMail task ${result.taskId} scheduled for ${result.recipientCount} recipients`,
+      })
+
+      return NextResponse.json({
+        approved: true,
+        executed: true,
+        action,
+        result,
+        message:
+          `Growth campaign scheduled in BillionMail as task ${result.taskId} for ${result.recipientCount} currently eligible recipients.`,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Growth campaign execution failed.'
+      await markApprovalFailed(action, message)
+
+      await writeAuditEvent({
+        actor: session.email,
+        actionId: action.id,
+        actionType: action.type,
+        outcome: 'failed',
+        resource: action.details.journeyId,
+        detail: message,
+      })
+
+      return NextResponse.json({ approved: true, executed: false, error: message }, { status: 502 })
+    }
   }
 
   if (action.type === 'forward_email') {
