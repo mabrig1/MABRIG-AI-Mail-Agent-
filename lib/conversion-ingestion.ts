@@ -334,3 +334,122 @@ export function resolveProviderCampaignId(metadata: unknown) {
 
   return undefined
 }
+
+
+export async function getConversionNetworkSummary() {
+  const db = await getDatabase()
+  await ensureConversionIndexes()
+
+  const rows = await db.collection(COLLECTION)
+    .aggregate([
+      { $match: { status: 'processed' } },
+      {
+        $addFields: {
+          sourceApp: {
+            $let: {
+              vars: {
+                sourceParts: {
+                  $split: [{ $ifNull: ['$source', '$provider'] }, ':'],
+                },
+              },
+              in: { $arrayElemAt: ['$$sourceParts', 0] },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            sourceApp: '$sourceApp',
+            currency: { $ifNull: ['$currency', 'UNSPECIFIED'] },
+          },
+          events: { $sum: 1 },
+          purchases: {
+            $sum: { $cond: [{ $eq: ['$type', 'purchase'] }, 1, 0] },
+          },
+          quoteRequests: {
+            $sum: { $cond: [{ $eq: ['$type', 'quote_request'] }, 1, 0] },
+          },
+          purchaseValue: {
+            $sum: {
+              $cond: [
+                { $eq: ['$type', 'purchase'] },
+                { $ifNull: ['$amount', 0] },
+                0,
+              ],
+            },
+          },
+          directAttributedEvents: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [{ $ifNull: ['$campaignId', ''] }, ''] },
+                    { $ne: ['$campaignId', null] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          lastEventAt: { $max: '$processedAt' },
+        },
+      },
+      { $sort: { '_id.sourceApp': 1, '_id.currency': 1 } },
+    ])
+    .toArray()
+
+  const sources = new Map<
+    string,
+    {
+      sourceApp: string
+      events: number
+      purchases: number
+      quoteRequests: number
+      directAttributedEvents: number
+      purchaseValueByCurrency: Record<string, number>
+      lastEventAt: Date | null
+    }
+  >()
+
+  for (const row of rows) {
+    const sourceApp = String(row._id?.sourceApp || 'unknown')
+    const currency = String(row._id?.currency || 'UNSPECIFIED')
+    const current = sources.get(sourceApp) ?? {
+      sourceApp,
+      events: 0,
+      purchases: 0,
+      quoteRequests: 0,
+      directAttributedEvents: 0,
+      purchaseValueByCurrency: {},
+      lastEventAt: null,
+    }
+
+    current.events += Number(row.events || 0)
+    current.purchases += Number(row.purchases || 0)
+    current.quoteRequests += Number(row.quoteRequests || 0)
+    current.directAttributedEvents += Number(row.directAttributedEvents || 0)
+
+    const purchaseValue = Number(row.purchaseValue || 0)
+    if (purchaseValue > 0) {
+      current.purchaseValueByCurrency[currency] = Number(
+        ((current.purchaseValueByCurrency[currency] ?? 0) + purchaseValue).toFixed(2),
+      )
+    }
+
+    if (row.lastEventAt instanceof Date) {
+      if (!current.lastEventAt || row.lastEventAt > current.lastEventAt) {
+        current.lastEventAt = row.lastEventAt
+      }
+    }
+
+    sources.set(sourceApp, current)
+  }
+
+  return Array.from(sources.values()).sort((a, b) => {
+    const aTime = a.lastEventAt?.getTime() ?? 0
+    const bTime = b.lastEventAt?.getTime() ?? 0
+    return bTime - aTime
+  })
+}
