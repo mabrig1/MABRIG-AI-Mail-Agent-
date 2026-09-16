@@ -14,6 +14,7 @@ const agentOptions = [
   ['growth', 'Growth Intelligence Agent'],
   ['lifecycle', 'Lifecycle Journey Architect'],
   ['sales', 'Sales Opportunity Agent'],
+  ['autopilot', 'Growth Autopilot Orchestrator'],
 ]
 
 const actionOptions = [
