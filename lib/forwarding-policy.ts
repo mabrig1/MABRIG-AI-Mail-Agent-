@@ -26,8 +26,22 @@ export function parseForwardTargets(value: string) {
 
 export function validateForwardingSource(addressInput: string) {
   const address = addressInput.trim().toLowerCase()
+
   if (!EMAIL_RE.test(address)) {
     throw new Error('Forwarding source must be a valid email address.')
+  }
+
+  const sourceDomain = emailDomain(address)
+  const configuredSources = csvEnv('FORWARDING_ALLOWED_SOURCE_DOMAINS')
+  const fallbackDomain = (process.env.MAIL_DOMAIN ?? '').trim().toLowerCase()
+  const allowedSources = configuredSources.length
+    ? configuredSources
+    : fallbackDomain
+      ? [fallbackDomain]
+      : []
+
+  if (allowedSources.length && !allowedSources.includes(sourceDomain)) {
+    throw new Error(`Source domain ${sourceDomain} is not allowed for forwarding rules.`)
   }
 
   return { address, sourceDomain, allowedSources }
@@ -55,19 +69,6 @@ export function validateForwardingRule(addressInput: string, gotoInput: string) 
     throw new Error('A forwarding rule cannot target its own source address.')
   }
 
-  const sourceDomain = emailDomain(address)
-  const configuredSources = csvEnv('FORWARDING_ALLOWED_SOURCE_DOMAINS')
-  const fallbackDomain = (process.env.MAIL_DOMAIN ?? '').trim().toLowerCase()
-  const allowedSources = configuredSources.length
-    ? configuredSources
-    : fallbackDomain
-      ? [fallbackDomain]
-      : []
-
-  if (allowedSources.length && !allowedSources.includes(sourceDomain)) {
-    throw new Error(`Source domain ${sourceDomain} is not allowed for forwarding rules.`)
-  }
-
   const allowExternal = process.env.FORWARDING_ALLOW_EXTERNAL === 'true'
   const destinationAllowlist = new Set([
     ...allowedSources,
@@ -77,9 +78,11 @@ export function validateForwardingRule(addressInput: string, gotoInput: string) 
 
   for (const target of targets) {
     const domain = emailDomain(target)
+
     if (blockedDomains.has(domain)) {
       throw new Error(`Destination domain ${domain} is blocked.`)
     }
+
     if (!allowExternal && destinationAllowlist.size && !destinationAllowlist.has(domain)) {
       throw new Error(
         `External forwarding to ${domain} is disabled. Add it to the destination allowlist or explicitly enable external forwarding.`,
@@ -111,13 +114,16 @@ export function assertNoForwardingLoop(
 
   function reachesSource(node: string, visited: Set<string>): boolean {
     const normalized = node.toLowerCase()
+
     if (normalized === source.toLowerCase()) return true
     if (visited.has(normalized)) return false
+
     visited.add(normalized)
 
     for (const next of graph.get(normalized) ?? []) {
       if (reachesSource(next, visited)) return true
     }
+
     return false
   }
 
