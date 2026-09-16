@@ -8,6 +8,10 @@ type ConversionEvent = {
   eventKey?: string
   type?: string
   reference?: string
+  source?: string
+  product?: string
+  amount?: number
+  currency?: string
   campaignId?: string
   providerVerified?: boolean
   status?: string
@@ -50,6 +54,20 @@ export function ConversionGateway() {
     void load()
   }, [load])
 
+  const events = payload.events ?? []
+  const sourceSummary = events.reduce<Record<string, { events: number; purchases: number; quoteRequests: number }>>(
+    (acc, event) => {
+      const source = event.source || event.provider || 'unknown'
+      const app = source.split(':')[0] || source
+      acc[app] ??= { events: 0, purchases: 0, quoteRequests: 0 }
+      acc[app].events += 1
+      if (event.type === 'purchase') acc[app].purchases += 1
+      if (event.type === 'quote_request') acc[app].quoteRequests += 1
+      return acc
+    },
+    {},
+  )
+
   const integrations = [
     ['Generic HMAC', payload.integrations?.generic, payload.endpoints?.generic],
     ['Paystack', payload.integrations?.paystack, payload.endpoints?.paystack],
@@ -88,6 +106,20 @@ export function ConversionGateway() {
         ))}
       </div>
 
+      {Object.keys(sourceSummary).length > 0 && (
+        <div className="source-network-grid">
+          {Object.entries(sourceSummary).map(([source, summary]) => (
+            <article className="source-network-card" key={source}>
+              <p className="eyebrow">CONNECTED SOURCE</p>
+              <h3>{source}</h3>
+              <p>
+                <strong>{summary.events}</strong> events · <strong>{summary.purchases}</strong> purchases · <strong>{summary.quoteRequests}</strong> quote requests
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+
       <div className="conversion-guidance">
         <p>
           Payment events can create a customer lifecycle record and attributed purchase, but they do not grant marketing consent.
@@ -99,9 +131,11 @@ export function ConversionGateway() {
         <table className="conversion-table">
           <thead>
             <tr>
+              <th>Source app</th>
               <th>Provider</th>
               <th>Type</th>
               <th>Status</th>
+              <th>Product / value</th>
               <th>Reference</th>
               <th>Campaign</th>
               <th>Verified</th>
@@ -111,11 +145,12 @@ export function ConversionGateway() {
           <tbody>
             {(payload.events ?? []).length === 0 ? (
               <tr>
-                <td colSpan={7}>No conversion events recorded yet.</td>
+                <td colSpan={9}>No conversion events recorded yet.</td>
               </tr>
             ) : (
               (payload.events ?? []).map(event => (
                 <tr key={event._id}>
+                  <td><strong>{event.source?.split(':')[0] || event.provider || '—'}</strong><small>{event.source || ''}</small></td>
                   <td>{event.provider || '—'}</td>
                   <td>{event.type?.replaceAll('_', ' ') || '—'}</td>
                   <td>
@@ -123,6 +158,12 @@ export function ConversionGateway() {
                       {event.status || 'unknown'}
                     </span>
                     {event.lastError && <small>{event.lastError}</small>}
+                  </td>
+                  <td>
+                    <span>{event.product || '—'}</span>
+                    {typeof event.amount === 'number' && (
+                      <small>{event.currency || ''} {event.amount.toLocaleString()}</small>
+                    )}
                   </td>
                   <td>{event.reference || event.eventKey || '—'}</td>
                   <td><code>{event.campaignId || '—'}</code></td>
