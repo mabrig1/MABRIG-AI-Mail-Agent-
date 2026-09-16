@@ -37,6 +37,13 @@ export async function GET() {
       (process.env.BILLIONMAIL_USERNAME && process.env.BILLIONMAIL_PASSWORD)
     ),
     forwardingExecutionEnabled: process.env.FORWARDING_EXECUTION_ENABLED === 'true',
+    growthAutopilot: {
+      cooldownDays: Math.max(Number(process.env.GROWTH_AUTOPILOT_COOLDOWN_DAYS ?? 7), 1),
+      schedulerSecretConfigured: Boolean(
+        process.env.CRON_SECRET || process.env.AUTOPILOT_CRON_SECRET
+      ),
+      scheduledPath: '/api/growth/journeys/autoscan',
+    },
     persistence,
     mail,
   })
