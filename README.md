@@ -14,7 +14,7 @@
 
 ## Safety model
 
-The current release runs in **approval-controlled mode**. AI output can recommend or draft actions, signed action proposals expire after 15 minutes, and external mail execution remains disabled until a real executor is connected. The production flow is:
+The current release runs in **approval-controlled mode**. AI output can recommend or draft actions and signed action proposals expire after 15 minutes. Verified forwarding-rule operations have a real BillionMail executor, but that executor is disabled by default until `FORWARDING_EXECUTION_ENABLED=true`. Other external actions remain non-executing until dedicated adapters are connected. The production flow is:
 
 ```
 Inbox / Campaign -> Agent Router -> Signed Human Approval Gate -> MABRIG Mail
@@ -56,6 +56,16 @@ APPROVAL_SECRET=""
 
 BILLIONMAIL_BASE_URL=""
 BILLIONMAIL_API_TOKEN=""
+BILLIONMAIL_USERNAME=""
+BILLIONMAIL_PASSWORD=""
+
+FORWARDING_EXECUTION_ENABLED="false"
+FORWARDING_ALLOW_EXTERNAL="false"
+FORWARDING_ALLOWED_SOURCE_DOMAINS="mabrigmail.online"
+FORWARDING_ALLOWED_DESTINATION_DOMAINS="mabrigmail.online"
+FORWARDING_BLOCKED_DESTINATION_DOMAINS=""
+FORWARDING_MAX_TARGETS="5"
+
 MAIL_DOMAIN="mabrigmail.online"
 MAIL_HOSTNAME="mail.mabrigmail.online"
 
@@ -90,13 +100,33 @@ Use long random values for `AUTH_SECRET` and `APPROVAL_SECRET`.
 
 `POST /api/actions/propose` creates a signed, expiring proposal for `send_email`, `forward_email`, `create_forward_rule`, `create_campaign`, `create_mailbox`, or `change_mail_setting`.
 
-`POST /api/actions/approve` validates human approval but intentionally does **not** execute an external side effect yet.
+`POST /api/actions/approve` validates human approval and dispatches only action types with a registered executor. `create_forward_rule`, `edit_forward_rule`, and `delete_forward_rule` can execute against BillionMail when the forwarding execution gate is enabled. Other action types remain approval-only.
 
 ## Forwarding API
 
 `POST /api/forwarding/prepare` requires an authenticated administrator, an explicit destination email address and the original message. The forwarding agent reviews the message, prepares a forwarding recommendation and creates a signed `forward_email` proposal. Approval is separate from execution; no message is forwarded until a real executor is connected.
 
 The **Forwarding Rule Planner** is also available through `POST /api/agent` using agent `routing`. It is intended for recurring rules and must still pass through the signed approval gate before activation.
+
+### Forwarding-rule administration
+
+`GET /api/forwarding/rules` reads the current forwarding rules from the configured BillionMail server.
+
+The protected dashboard can stage and approve:
+
+- creation of a forwarding rule;
+- enable/disable changes;
+- deletion of an existing rule.
+
+Before execution, the server enforces source-domain policy, destination-domain policy, blocked-domain policy, maximum destination count and loop detection against current active rules.
+
+The bridge supports either a preconfigured `BILLIONMAIL_API_TOKEN` or server-side `BILLIONMAIL_USERNAME` / `BILLIONMAIL_PASSWORD`. Credential-based mode obtains and caches a short-lived BillionMail JWT.
+
+BillionMail currently exposes these operations through its authenticated console API (`/api/mail_forward/list`, `/add`, `/edit`, `/delete`). This is treated as an adapter boundary in this project so upstream route changes can be isolated to `lib/billionmail.ts`.
+
+### Audit behavior
+
+MABRIG emits structured `MABRIG_AUDIT` runtime events for approvals, executions, failures and rejections without logging message bodies, passwords or tokens. BillionMail also records its own mail-forward configuration operations.
 
 ## Agent API
 
@@ -130,8 +160,8 @@ Recommended public endpoints:
 2. Read-only inbox connector and thread summarisation.
 3. ✅ Signed approval-queued action workflow.
 4. Campaign creation and list segmentation.
-5. Deliverability checks and DNS diagnostics.
-6. Multi-domain mailbox administration.
+5. ✅ Deliverability checks and DNS diagnostics.
+6. Forwarding-rule administration and multi-domain mailbox administration.
 7. Scheduled automations with audit logs.
 8. Provider/model routing with cost and quality controls.
 9. Role-based permissions for administrators and operators.
