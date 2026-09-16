@@ -1,5 +1,6 @@
 import { AgentConsole } from '@/components/agent-console'
 import { BusinessGrowthStudio } from '@/components/business-growth-studio'
+import { CustomerGrowthGraph } from '@/components/customer-growth-graph'
 import { LeadIntelligence } from '@/components/lead-intelligence'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { ForwardingStudio } from '@/components/forwarding-studio'
@@ -52,6 +53,7 @@ export default async function DashboardPage() {
       </section>
 
       <BusinessGrowthStudio />
+      <CustomerGrowthGraph />
       <LeadIntelligence />
       <AgentConsole />
       <ForwardingStudio />
