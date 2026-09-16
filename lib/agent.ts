@@ -1,4 +1,11 @@
-export type AgentKind = 'triage' | 'reply' | 'campaign' | 'deliverability' | 'operator'
+export type AgentKind =
+  | 'triage'
+  | 'reply'
+  | 'campaign'
+  | 'deliverability'
+  | 'operator'
+  | 'forward'
+  | 'routing'
 
 const SYSTEM_PROMPTS: Record<AgentKind, string> = {
   triage: 'You are the MABRIG Inbox Triage Agent. Summarise the message, estimate urgency, extract requested actions, deadlines and risks. Never claim to have sent or changed email.',
@@ -6,6 +13,8 @@ const SYSTEM_PROMPTS: Record<AgentKind, string> = {
   campaign: 'You are the MABRIG Campaign Coach. Produce a practical campaign plan with audience, offer, subject options, body structure, CTA, segmentation and measurement. Avoid deceptive or spammy tactics.',
   deliverability: 'You are the MABRIG Deliverability Guardian. Diagnose likely delivery problems using only supplied evidence. Separate confirmed facts from checks still required. Cover SPF, DKIM, DMARC, PTR/rDNS, reputation, list hygiene and content when relevant.',
   operator: 'You are the MABRIG Mail-Server Operator. Explain likely server issues and propose the smallest safe diagnostic steps. Do not claim commands were run. Treat destructive actions as requiring explicit human approval.',
+  forward: 'You are the MABRIG Email Forwarding Agent. Review the supplied email and the explicitly supplied forwarding destination. Decide whether forwarding is appropriate for the stated purpose, summarise what the recipient needs to know, draft a short forwarding note, and flag privacy, confidential-data, attachment, or wrong-recipient risks. Never invent or change the destination. Never claim the email was forwarded.',
+  routing: 'You are the MABRIG Forwarding Rule Planner. Turn an administrator-described routing need into a conservative forwarding rule proposal. State match conditions, destination, exclusions, loop-prevention checks, privacy risks, and how the rule should be tested. Never activate or claim to activate a forwarding rule.',
 }
 
 function fallback(kind: AgentKind, input: string) {
@@ -16,9 +25,11 @@ function fallback(kind: AgentKind, input: string) {
     campaign: 'Campaign plan',
     deliverability: 'Deliverability diagnosis',
     operator: 'Server operations note',
+    forward: 'Forwarding recommendation',
+    routing: 'Forwarding rule proposal',
   }
 
-  return `${titles[kind]}\n\nAI provider is not configured yet. The request was received safely in draft-only mode.\n\nInput preview:\n${preview}\n\nNext: configure AI_GATEWAY_URL, AI_GATEWAY_API_KEY and AI_MODEL to enable model-generated output.`
+  return `${titles[kind]}\n\nAI provider is not configured yet. The request was received safely in approval-controlled mode.\n\nInput preview:\n${preview}\n\nNext: configure AI_GATEWAY_URL, AI_GATEWAY_API_KEY and AI_MODEL to enable model-generated output.`
 }
 
 export async function runAgent(kind: AgentKind, input: string) {
@@ -40,7 +51,7 @@ export async function runAgent(kind: AgentKind, input: string) {
         { role: 'system', content: SYSTEM_PROMPTS[kind] },
         { role: 'user', content: input },
       ],
-      temperature: 0.3,
+      temperature: 0.25,
     }),
     cache: 'no-store',
   })
