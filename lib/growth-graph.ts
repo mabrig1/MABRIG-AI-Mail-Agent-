@@ -391,3 +391,44 @@ export async function getGrowthSegments() {
     ],
   }
 }
+
+
+export async function getSegmentRecipients(segmentKey: string) {
+  const db = await getDatabase()
+  const consented = new Set<string>(
+    await db.collection(CONTACTS).distinct('email', { marketingConsent: true }) as string[],
+  )
+
+  if (segmentKey === 'high_intent_30d') {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const emails = await emailsWithRecentInteraction(
+      ['email_reply', 'pricing_visit', 'quote_request'],
+      since,
+    )
+    return Array.from(new Set(emails.filter(email => consented.has(email)))).sort()
+  }
+
+  if (segmentKey === 'opportunity_radar') {
+    const emails = await db.collection(OPPORTUNITIES).distinct('email', {
+      score: { $gte: 55 },
+    }) as string[]
+    return Array.from(new Set(emails.filter(email => consented.has(email)))).sort()
+  }
+
+  if (segmentKey === 'reactivation' || segmentKey === 'referral_candidates') {
+    const purchases = await purchaseStats()
+    const threshold = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+
+    const emails = purchases
+      .filter(item => {
+        if (!consented.has(item._id)) return false
+        if (segmentKey === 'reactivation') return item.lastPurchaseAt < threshold
+        return item.purchases >= 2
+      })
+      .map(item => item._id)
+
+    return Array.from(new Set(emails)).sort()
+  }
+
+  throw new Error('Unsupported growth segment.')
+}
