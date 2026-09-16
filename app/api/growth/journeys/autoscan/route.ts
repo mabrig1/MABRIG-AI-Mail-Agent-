@@ -1,19 +1,26 @@
+import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import { scanGrowthAutopilot } from '@/lib/growth-autopilot'
 import { mongoConfigured } from '@/lib/mongodb'
 
+function schedulerSecret() {
+  return process.env.CRON_SECRET || process.env.AUTOPILOT_CRON_SECRET || ''
+}
+
 function authorised(request: Request) {
-  const secret = process.env.AUTOPILOT_CRON_SECRET
+  const secret = schedulerSecret()
   if (!secret) return false
 
-  const header = request.headers.get('authorization') || ''
-  return header === `Bearer ${secret}`
+  const expected = Buffer.from(`Bearer ${secret}`)
+  const actual = Buffer.from(request.headers.get('authorization') || '')
+
+  return expected.length === actual.length && timingSafeEqual(expected, actual)
 }
 
 export async function GET(request: Request) {
-  if (!process.env.AUTOPILOT_CRON_SECRET) {
+  if (!schedulerSecret()) {
     return NextResponse.json(
-      { error: 'AUTOPILOT_CRON_SECRET is not configured.' },
+      { error: 'CRON_SECRET or AUTOPILOT_CRON_SECRET is not configured.' },
       { status: 503 },
     )
   }
