@@ -303,3 +303,89 @@ export async function createMarketingTask(input: {
     }),
   })
 }
+
+
+export type MarketingTaskInfo = {
+  id: number
+  task_name?: string
+  addresser?: string
+  subject?: string
+  full_name?: string
+  recipient_count?: number
+  task_process?: number
+  pause?: number
+  template_id?: number
+  track_open?: number
+  track_click?: number
+  start_time?: number
+  create_time?: number
+  update_time?: number
+  group_id?: number
+}
+
+export type MarketingTaskDashboard = {
+  sends: number
+  delivered: number
+  opened: number
+  clicked: number
+  bounced: number
+  delayed_queue?: number
+  delivery_rate: number
+  bounce_rate: number
+  open_rate: number
+  click_rate: number
+}
+
+type MarketingTaskStatChart = {
+  dashboard?: Partial<MarketingTaskDashboard>
+  mail_providers?: unknown
+  send_mail_chart?: unknown
+  bounce_rate_chart?: unknown
+  open_rate_chart?: unknown
+  click_rate_chart?: unknown
+}
+
+function numberValue(value: unknown) {
+  const result = Number(value ?? 0)
+  return Number.isFinite(result) ? result : 0
+}
+
+export async function getMarketingTaskInfo(taskId: number) {
+  if (!Number.isInteger(taskId) || taskId <= 0) throw new Error('A valid BillionMail task id is required.')
+  return billionMailRequest<MarketingTaskInfo>(`/batch_mail/task/find?id=${taskId}`)
+}
+
+export async function getMarketingTaskStats(
+  taskId: number,
+  startTime: number,
+  endTime = Math.floor(Date.now() / 1000),
+) {
+  if (!Number.isInteger(taskId) || taskId <= 0) throw new Error('A valid BillionMail task id is required.')
+
+  const start = Math.max(Math.floor(startTime || 0), 0)
+  const end = Math.max(Math.floor(endTime || 0), start)
+
+  const params = new URLSearchParams({
+    task_id: String(taskId),
+    start_time: String(start),
+    end_time: String(end),
+  })
+
+  const result = await billionMailRequest<MarketingTaskStatChart>(
+    `/batch_mail/task/stat_chart?${params.toString()}`,
+  )
+  const dashboard = result?.dashboard ?? {}
+
+  return {
+    sends: numberValue(dashboard.sends),
+    delivered: numberValue(dashboard.delivered),
+    opened: numberValue(dashboard.opened),
+    clicked: numberValue(dashboard.clicked),
+    bounced: numberValue(dashboard.bounced),
+    delayed_queue: numberValue(dashboard.delayed_queue),
+    delivery_rate: numberValue(dashboard.delivery_rate),
+    bounce_rate: numberValue(dashboard.bounce_rate),
+    open_rate: numberValue(dashboard.open_rate),
+    click_rate: numberValue(dashboard.click_rate),
+  } satisfies MarketingTaskDashboard
+}
