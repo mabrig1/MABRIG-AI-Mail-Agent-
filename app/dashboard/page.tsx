@@ -1,5 +1,6 @@
 import { AgentConsole } from '@/components/agent-console'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
+import { ForwardingStudio } from '@/components/forwarding-studio'
 import { LogoutButton } from '@/components/logout-button'
 import { requireAdmin } from '@/lib/auth-server'
 
@@ -9,6 +10,8 @@ const agents = [
   ['Campaign Coach', 'Turn a goal into segments, subject lines and campaign copy.'],
   ['Deliverability Guardian', 'Diagnose SPF, DKIM, DMARC, reputation and content risks.'],
   ['Mail-Server Operator', 'Explain server state and propose safe operational actions.'],
+  ['Email Forwarding Agent', 'Review messages and prepare safe forwards to explicit recipients.'],
+  ['Forwarding Rule Planner', 'Design conservative recurring routing rules with loop and privacy checks.'],
 ]
 
 export default async function DashboardPage() {
@@ -42,6 +45,7 @@ export default async function DashboardPage() {
       </section>
 
       <AgentConsole />
+      <ForwardingStudio />
       <DeliverabilityChecker />
 
       <section className="architecture">
