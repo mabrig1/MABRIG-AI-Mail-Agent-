@@ -96,6 +96,7 @@ CAMPAIGN_WARMUP="true"
 CAMPAIGN_TRACK_OPEN="true"
 CAMPAIGN_TRACK_CLICK="true"
 CAMPAIGN_REQUIRE_DNS_PASS="true"
+CAMPAIGN_ATTRIBUTION_WINDOW_DAYS="14"
 
 FORWARDING_EXECUTION_ENABLED="false"
 FORWARDING_ALLOW_EXTERNAL="false"
@@ -286,6 +287,29 @@ The cooldown between active proposals for the same segment is controlled by `GRO
 - `POST /api/growth/journeys/dismiss` — dismiss a non-approved proposal.
 - `GET /api/growth/journeys/autoscan` — secret-protected scheduled draft scan.
 
+## Campaign Intelligence & Revenue Attribution
+
+Executed Growth Autopilot journeys can be synchronized with BillionMail's task-specific statistics through `/api/batch_mail/task/stat_chart`. MABRIG stores the resulting sends, delivered, bounced, opened, clicked and corresponding rates on the originating Growth Journey.
+
+The dashboard separates two attribution classes:
+
+- **Direct attribution** — a recorded business event carries a `campaignId` matching the Growth Journey ID, BillionMail task ID, `bm:<taskId>`, or `task:<taskId>`.
+- **Post-send assisted** — an event occurred within the configured attribution window for someone in the approved campaign audience, but no campaign ID was supplied. This is shown as an observed assisted signal and is not presented as proof that the campaign caused the event.
+
+`CAMPAIGN_ATTRIBUTION_WINDOW_DAYS` defaults to 14 days and is capped at 90 days.
+
+Purchase, reply, quote-request and referral events can carry a campaign attribution ID through the Customer Growth Graph. Purchase records retain that ID for future analysis.
+
+Administrators can also record actual campaign spend. When spend and directly attributed revenue use the same currency, MABRIG calculates **direct ROAS**. This is revenue divided by campaign spend; it is deliberately not labelled profit ROI because cost of goods, labour, tax and overhead are not known.
+
+Campaign intelligence APIs:
+
+- `GET /api/growth/campaign-intelligence` — list stored executed campaign intelligence.
+- `POST /api/growth/campaign-intelligence` — refresh one journey or all recent executed campaigns from BillionMail.
+- `POST /api/growth/campaign-intelligence/spend` — record campaign spend and recalculate direct ROAS.
+
+The daily Growth Autopilot cron also performs a read-only campaign-intelligence refresh. A metrics-sync failure does not grant send capability and does not bypass the human approval gate.
+
 ## Production topology
 
 Deploy this Next.js application independently from the underlying mail server. The AI/dashboard layer can run on Vercel, while SMTP/IMAP/Postfix/Dovecot/Rspamd/Postgres remain on a persistent Linux VPS running the MABRIG Mail/BillionMail stack.
@@ -307,9 +331,10 @@ Recommended public endpoints:
 6. Forwarding-rule administration and multi-domain mailbox administration.
 7. ✅ Persistent Customer Growth Graph, audit logs and durable approval execution state.
 8. ✅ Approval-controlled Growth Autopilot with scheduled draft scans.
-9. Provider/model routing with cost and quality controls.
-10. Role-based permissions for administrators and operators.
-11. Observability, rate limiting and security event logging.
+9. ✅ Task-specific Campaign Intelligence, conservative revenue attribution and direct ROAS.
+10. Provider/model routing with cost and quality controls.
+11. Role-based permissions for administrators and operators.
+12. Observability, rate limiting and security event logging.
 
 ## Upstream mail engine
 
