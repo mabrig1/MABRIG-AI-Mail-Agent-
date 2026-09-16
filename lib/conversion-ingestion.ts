@@ -59,6 +59,13 @@ async function claimConversion(input: ConversionEventInput) {
     eventKey,
     type: input.type,
     reference: input.reference?.trim().slice(0, 240) || undefined,
+    source: input.source?.trim().slice(0, 120) || `${input.provider}:webhook`,
+    product: input.product?.trim().slice(0, 200) || undefined,
+    amount:
+      Number.isFinite(Number(input.amount)) && Number(input.amount) >= 0
+        ? Number(input.amount)
+        : undefined,
+    currency: input.currency?.trim().toUpperCase().slice(0, 12) || undefined,
     campaignId: input.campaignId?.trim().slice(0, 120) || undefined,
     providerVerified: input.providerVerified === true,
     payloadFingerprint: createHash('sha256')
@@ -266,6 +273,10 @@ export async function listRecentConversionEvents(limit = 30) {
       eventKey: 1,
       type: 1,
       reference: 1,
+      source: 1,
+      product: 1,
+      amount: 1,
+      currency: 1,
       campaignId: 1,
       providerVerified: 1,
       status: 1,
