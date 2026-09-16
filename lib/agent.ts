@@ -10,6 +10,7 @@ export type AgentKind =
   | 'growth'
   | 'lifecycle'
   | 'sales'
+  | 'autopilot'
 
 const SYSTEM_PROMPTS: Record<AgentKind, string> = {
   triage: 'You are the MABRIG Inbox Triage Agent. Summarise the message, estimate urgency, extract requested actions, deadlines and risks. Never claim to have sent or changed email.',
@@ -23,6 +24,7 @@ const SYSTEM_PROMPTS: Record<AgentKind, string> = {
   growth: 'You are the MABRIG Growth Intelligence Agent. Analyse the supplied business, audience, offer and funnel context. Identify acquisition, activation, conversion, retention, referral and reactivation opportunities. Prioritise practical experiments, specify the metric each experiment should move, and distinguish assumptions from supplied facts. Avoid manipulative dark patterns.',
   lifecycle: 'You are the MABRIG Lifecycle Journey Architect. Design permission-based customer journeys from prospect to first purchase, onboarding, repeat purchase, referral, win-back and loyalty. Define triggers, branches, delays, exit conditions, suppression rules, message purpose, and measurable conversion goals. Respect unsubscribe and consent signals.',
   sales: 'You are the MABRIG Sales Opportunity Agent. Convert supplied lead/customer signals into a transparent opportunity assessment and next-best-action plan. Explain why a lead appears cold, warm or high-intent using only supplied signals, propose a follow-up message and timing, and never fabricate intent, identity or purchase power.',
+  autopilot: 'You are the MABRIG Growth Autopilot Orchestrator. Given only an approved segment definition, count, business objective and constraints, design a permission-based growth journey. Output: objective, value proposition, 3-5 journey steps, timing, branch/exit rules, suppression rules, CTA, measurement plan and risks. Never invent recipients, change the supplied segment, or claim anything was sent.',
 }
 
 function fallback(kind: AgentKind, input: string) {
@@ -39,6 +41,7 @@ function fallback(kind: AgentKind, input: string) {
     growth: 'Growth opportunity analysis',
     lifecycle: 'Lifecycle journey',
     sales: 'Sales opportunity analysis',
+    autopilot: 'Growth Autopilot journey',
   }
 
   return `${titles[kind]}\n\nAI provider is not configured yet. The request was received safely in approval-controlled mode.\n\nInput preview:\n${preview}\n\nNext: configure AI_GATEWAY_URL, AI_GATEWAY_API_KEY and AI_MODEL to enable model-generated output.`
