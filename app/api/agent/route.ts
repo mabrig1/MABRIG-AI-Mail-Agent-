@@ -10,6 +10,10 @@ const ALLOWED = new Set<AgentKind>([
   'operator',
   'forward',
   'routing',
+  'promotion',
+  'growth',
+  'lifecycle',
+  'sales',
 ])
 
 export async function POST(request: Request) {
