@@ -1,6 +1,7 @@
 import { AgentConsole } from '@/components/agent-console'
 import { BusinessGrowthStudio } from '@/components/business-growth-studio'
 import { CustomerGrowthGraph } from '@/components/customer-growth-graph'
+import { GrowthAutopilot } from '@/components/growth-autopilot'
 import { LeadIntelligence } from '@/components/lead-intelligence'
 import { DeliverabilityChecker } from '@/components/deliverability-checker'
 import { ForwardingStudio } from '@/components/forwarding-studio'
@@ -20,6 +21,7 @@ const agents = [
   ['Growth Intelligence Agent', 'Find acquisition, conversion, retention and referral opportunities.'],
   ['Lifecycle Journey Architect', 'Build prospect, onboarding, repeat-purchase, referral and win-back journeys.'],
   ['Sales Opportunity Agent', 'Score supplied intent signals and recommend the next best business action.'],
+  ['Growth Autopilot', 'Detect eligible growth segments and build approval-controlled customer journeys.'],
 ]
 
 export default async function DashboardPage() {
@@ -53,6 +55,7 @@ export default async function DashboardPage() {
       </section>
 
       <BusinessGrowthStudio />
+      <GrowthAutopilot />
       <CustomerGrowthGraph />
       <LeadIntelligence />
       <AgentConsole />
