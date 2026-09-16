@@ -98,6 +98,11 @@ CAMPAIGN_TRACK_CLICK="true"
 CAMPAIGN_REQUIRE_DNS_PASS="true"
 CAMPAIGN_ATTRIBUTION_WINDOW_DAYS="14"
 
+CONVERSION_INGEST_SECRET=""
+PAYSTACK_SECRET_KEY=""
+PAYSTACK_AMOUNT_DIVISOR="100"
+FLUTTERWAVE_SECRET_HASH=""
+
 FORWARDING_EXECUTION_ENABLED="false"
 FORWARDING_ALLOW_EXTERNAL="false"
 FORWARDING_ALLOWED_SOURCE_DOMAINS="mabrigmail.online"
@@ -310,6 +315,66 @@ Campaign intelligence APIs:
 
 The daily Growth Autopilot cron also performs a read-only campaign-intelligence refresh. A metrics-sync failure does not grant send capability and does not bypass the human approval gate.
 
+## Automatic Conversion Gateway
+
+MABRIG can ingest real business outcomes automatically instead of relying on manual Growth Graph entry.
+
+Supported signed endpoints:
+
+- `POST /api/conversions/generic` — generic website, checkout, CRM or internal-app event ingestion using an HMAC-SHA256 signature in `x-mabrig-signature`.
+- `POST /api/conversions/paystack` — Paystack `charge.success` purchases verified with the provider's `x-paystack-signature` HMAC-SHA512 header.
+- `POST /api/conversions/flutterwave` — Flutterwave successful `charge.completed` purchases verified with the configured `verif-hash` secret.
+- `GET /api/conversions/status` — authenticated administrator status/readiness and recent event monitor.
+
+Every provider event is claimed idempotently in MongoDB before it can write a Growth Graph interaction. Provider retries therefore do not create duplicate purchases or inflate attributed revenue. Failed ingestion records can be retried safely.
+
+Raw webhook payloads are not stored by the Conversion Gateway. The ingestion ledger keeps operational metadata such as provider, event key/reference, status, attribution ID, verification state and a SHA-256 payload fingerprint.
+
+### Consent behavior
+
+Payment and business events can create a contact and move a purchaser to `customer` or `repeat-customer`, but they **never grant marketing consent**. Promotional eligibility remains controlled by the separate Growth Graph consent state.
+
+### Campaign attribution metadata
+
+For direct revenue attribution, pass the campaign identifier into checkout metadata before redirecting the customer to payment.
+
+Recognized metadata fields include:
+
+- `campaignId`
+- `campaign_id`
+- `mabrig_campaign_id`
+- `growth_journey_id`
+- `journey_id`
+
+Use either the Growth Journey MongoDB ID shown in Campaign Intelligence or `bm:<BillionMail task ID>`.
+
+Paystack metadata `custom_fields` are also inspected for these variable names. Flutterwave checks provider metadata objects when present.
+
+### Generic signed conversion example
+
+The generic endpoint accepts:
+
+```json
+{
+  "id": "order-12345",
+  "type": "purchase",
+  "email": "customer@example.com",
+  "amount": 25000,
+  "currency": "NGN",
+  "campaignId": "bm:42",
+  "product": "Research Consultancy",
+  "reference": "order-12345"
+}
+```
+
+Calculate `HMAC-SHA256(raw request body, CONVERSION_INGEST_SECRET)` and send the lowercase hex digest as `x-mabrig-signature`.
+
+Supported generic event types are `purchase`, `quote_request`, `email_reply`, `referral`, and `pricing_visit`.
+
+Paystack normally reports transaction amounts in currency subunits, so MABRIG divides the signed webhook amount by `PAYSTACK_AMOUNT_DIVISOR`, which defaults to 100 and can be adjusted if your payment configuration requires another divisor.
+
+This gateway is an analytics/customer-growth ingestion layer. It does not fulfil orders, grant entitlements, or send marketing mail.
+
 ## Production topology
 
 Deploy this Next.js application independently from the underlying mail server. The AI/dashboard layer can run on Vercel, while SMTP/IMAP/Postfix/Dovecot/Rspamd/Postgres remain on a persistent Linux VPS running the MABRIG Mail/BillionMail stack.
@@ -332,9 +397,10 @@ Recommended public endpoints:
 7. ✅ Persistent Customer Growth Graph, audit logs and durable approval execution state.
 8. ✅ Approval-controlled Growth Autopilot with scheduled draft scans.
 9. ✅ Task-specific Campaign Intelligence, conservative revenue attribution and direct ROAS.
-10. Provider/model routing with cost and quality controls.
-11. Role-based permissions for administrators and operators.
-12. Observability, rate limiting and security event logging.
+10. ✅ Signed, idempotent conversion ingestion for generic apps, Paystack and Flutterwave.
+11. Provider/model routing with cost and quality controls.
+12. Role-based permissions for administrators and operators.
+13. Observability, rate limiting and security event logging.
 
 ## Upstream mail engine
 
