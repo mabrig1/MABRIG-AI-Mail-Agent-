@@ -13,6 +13,18 @@ type Journey = {
   plan: string
   status: string
   createdAt: string
+  campaignDraft?: {
+    subject?: string
+    preheader?: string
+    bodyText?: string
+    ctaText?: string
+  }
+  billionMail?: {
+    taskId?: number
+    recipientCount?: number
+    scheduledStartTime?: number
+  }
+  executionError?: string
 }
 
 type Approval = {
@@ -23,6 +35,15 @@ type Approval = {
     summary: string
   }
   journeyId: string
+  audienceCount?: number
+  executable?: boolean
+  campaignDraft?: {
+    subject: string
+    preheader: string
+    bodyText: string
+    ctaText: string
+    digest: string
+  }
 }
 
 export function GrowthAutopilot() {
@@ -182,6 +203,16 @@ export function GrowthAutopilot() {
               <p><strong>Objective:</strong> {journey.objective}</p>
               <pre>{journey.plan}</pre>
 
+              {journey.campaignDraft?.subject && (
+                <div className="campaign-preview">
+                  <p className="eyebrow">APPROVED COPY SNAPSHOT</p>
+                  <h4>{journey.campaignDraft.subject}</h4>
+                  {journey.campaignDraft.preheader && <p>{journey.campaignDraft.preheader}</p>}
+                  {journey.campaignDraft.bodyText && <pre>{journey.campaignDraft.bodyText}</pre>}
+                  {journey.campaignDraft.ctaText && <strong>{journey.campaignDraft.ctaText}</strong>}
+                </div>
+              )}
+
               {journey.status === 'draft' && (
                 <div className="journey-actions">
                   <button type="button" onClick={() => stage(journey._id)} disabled={loading}>
@@ -202,7 +233,19 @@ export function GrowthAutopilot() {
 
               {journey.status === 'approved-awaiting-executor' && (
                 <p className="journey-note">
-                  Approved by an administrator. No campaign has been sent; this journey is waiting for the verified campaign executor.
+                  Approved by an administrator. Campaign execution is currently disabled by the production kill switch.
+                </p>
+              )}
+
+              {journey.status === 'scheduled' && (
+                <p className="journey-note">
+                  Scheduled in BillionMail as task {journey.billionMail?.taskId ?? '—'} for {journey.billionMail?.recipientCount ?? 0} currently eligible recipients.
+                </p>
+              )}
+
+              {journey.status === 'execution-failed' && (
+                <p className="journey-note">
+                  Execution failed and was stopped. {journey.executionError || 'Review server audit logs before creating a new approval.'}
                 </p>
               )}
             </article>
@@ -211,14 +254,25 @@ export function GrowthAutopilot() {
       </div>
 
       {approval && (
-        <div className="proposal-card">
+        <div className="campaign-approval-review">
           <div>
             <p className="eyebrow">SIGNED GROWTH APPROVAL</p>
-            <strong>{approval.action.type.replaceAll('_', ' ')}</strong>
-            <p>Approval {approval.action.id.slice(0, 8)} expires in 15 minutes.</p>
+            <h3>{approval.campaignDraft?.subject || approval.action.type.replaceAll('_', ' ')}</h3>
+            <p>
+              Approval {approval.action.id.slice(0, 8)} expires in 15 minutes and is bound to
+              {approval.audienceCount ?? 0} currently permissioned recipients.
+            </p>
+            {approval.campaignDraft?.preheader && <p><strong>Preheader:</strong> {approval.campaignDraft.preheader}</p>}
+            {approval.campaignDraft?.bodyText && <pre>{approval.campaignDraft.bodyText}</pre>}
+            {approval.campaignDraft?.ctaText && <p><strong>CTA:</strong> {approval.campaignDraft.ctaText}</p>}
+            <p>
+              {approval.executable
+                ? 'Execution is enabled: approval will create and schedule a native BillionMail marketing task.'
+                : 'Execution is disabled: approval will park the journey without sending.'}
+            </p>
           </div>
           <button type="button" onClick={approve} disabled={loading}>
-            Approve growth journey
+            {approval.executable ? 'Approve & schedule campaign' : 'Approve journey'}
           </button>
         </div>
       )}
