@@ -19,6 +19,15 @@ type Contact = {
   marketingConsent?: boolean
 }
 
+type Opportunity = {
+  _id: string
+  email: string
+  label?: string
+  score: number
+  band: string
+  nextBestAction?: string
+}
+
 const interactionTypes = [
   ['email_open', 'Email open'],
   ['email_click', 'Email click'],
@@ -35,6 +44,7 @@ const interactionTypes = [
 export function CustomerGrowthGraph() {
   const [segments, setSegments] = useState<Segment[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [status, setStatus] = useState('')
   const [saving, setSaving] = useState(false)
@@ -61,13 +71,15 @@ export function CustomerGrowthGraph() {
   })
 
   const refresh = useCallback(async () => {
-    const [segmentsResponse, contactsResponse] = await Promise.all([
+    const [segmentsResponse, contactsResponse, opportunitiesResponse] = await Promise.all([
       fetch('/api/growth/segments'),
       fetch('/api/growth/contacts?limit=50'),
+      fetch('/api/growth/opportunities?limit=10'),
     ])
 
     const segmentPayload = await segmentsResponse.json().catch(() => ({}))
     const contactPayload = await contactsResponse.json().catch(() => ({}))
+    const opportunityPayload = await opportunitiesResponse.json().catch(() => ({}))
 
     if (segmentsResponse.ok) {
       setConfigured(segmentPayload.configured !== false)
@@ -79,6 +91,10 @@ export function CustomerGrowthGraph() {
 
     if (contactsResponse.ok) {
       setContacts(contactPayload.contacts ?? [])
+    }
+
+    if (opportunitiesResponse.ok) {
+      setOpportunities(opportunityPayload.opportunities ?? [])
     }
   }, [])
 
@@ -172,6 +188,25 @@ export function CustomerGrowthGraph() {
               </article>
             ))}
           </div>
+
+          {opportunities.length > 0 && (
+            <div className="opportunity-list">
+              <p className="eyebrow">OPPORTUNITY RADAR</p>
+              {opportunities.map(item => (
+                <article className="opportunity-row" key={item._id}>
+                  <div>
+                    <strong>{item.label || item.email}</strong>
+                    <p>{item.email}</p>
+                  </div>
+                  <span className="opportunity-score">{item.score}/100</span>
+                  <div>
+                    <strong>{item.band.replace('-', ' ')}</strong>
+                    <p>{item.nextBestAction || 'No next action recorded.'}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
 
           <div className="growth-data-grid">
             <form className="growth-data-form" onSubmit={saveContact}>
