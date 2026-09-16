@@ -6,6 +6,7 @@ export type CampaignDraft = {
   preheader: string
   bodyText: string
   ctaText: string
+  ctaUrl?: string
   html: string
   digest: string
 }
@@ -35,6 +36,7 @@ function renderHtml(draft: {
   preheader: string
   bodyText: string
   ctaText: string
+  ctaUrl?: string
 }) {
   const paragraphs = draft.bodyText
     .split(/\n{2,}/)
@@ -50,7 +52,9 @@ function renderHtml(draft: {
     `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(draft.preheader)}</div>`,
     '<div style="max-width:640px;margin:0 auto;padding:24px;">',
     paragraphs,
-    `<p style="margin:24px 0 0;font-weight:700">${escapeHtml(draft.ctaText)}</p>`,
+    draft.ctaUrl
+      ? `<p style="margin:24px 0"><a href="${escapeHtml(draft.ctaUrl)}" style="display:inline-block;padding:12px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700">${escapeHtml(draft.ctaText)}</a></p>`
+      : `<p style="margin:24px 0 0;font-weight:700">${escapeHtml(draft.ctaText)}</p>`,
     '<p style="margin:28px 0 0;font-size:12px;color:#6b7280">You are receiving this because you previously gave permission to receive marketing messages. You can unsubscribe using the link provided by the mail platform.</p>',
     '</div></body></html>',
   ].join('')
@@ -62,6 +66,7 @@ export async function composeCampaignDraft(input: {
   segmentLabel: string
   segmentDefinition: string
   plan: string
+  ctaUrl?: string
 }) {
   const prompt = [
     `Campaign title: ${input.title}`,
@@ -117,9 +122,10 @@ export async function composeCampaignDraft(input: {
     240,
   )
 
-  const html = renderHtml({ preheader, bodyText, ctaText })
+  const ctaUrl = input.ctaUrl?.trim()
+  const html = renderHtml({ preheader, bodyText, ctaText, ctaUrl })
   const digest = createHash('sha256')
-    .update(JSON.stringify({ subject, preheader, bodyText, ctaText, html }))
+    .update(JSON.stringify({ subject, preheader, bodyText, ctaText, ctaUrl, html }))
     .digest('hex')
 
   return {
@@ -127,6 +133,7 @@ export async function composeCampaignDraft(input: {
     preheader,
     bodyText,
     ctaText,
+    ctaUrl,
     html,
     digest,
   } satisfies CampaignDraft
