@@ -210,6 +210,59 @@ export async function recordGrowthInteraction(input: InteractionInput) {
   return event
 }
 
+export async function saveOpportunityAssessment(input: {
+  email: string
+  label?: string
+  score: number
+  band: string
+  reasons: string[]
+  nextBestAction: string
+  recommendation: string
+}) {
+  const db = await getDatabase()
+  const email = normalizeEmail(input.email)
+  const now = new Date()
+
+  await upsertGrowthContact({ email })
+
+  await db.collection(OPPORTUNITIES).updateOne(
+    { email },
+    {
+      $set: {
+        email,
+        label: input.label?.trim().slice(0, 160) || undefined,
+        score: Math.max(0, Math.min(Number(input.score) || 0, 100)),
+        band: input.band.slice(0, 40),
+        reasons: input.reasons.slice(0, 20).map(reason => reason.slice(0, 220)),
+        nextBestAction: input.nextBestAction.slice(0, 600),
+        recommendation: input.recommendation.slice(0, 3000),
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  )
+
+  return db.collection(OPPORTUNITIES).findOne({ email })
+}
+
+export async function listTopOpportunities(limit = 20) {
+  const db = await getDatabase()
+  return db.collection(OPPORTUNITIES)
+    .find({})
+    .sort({ score: -1, updatedAt: -1 })
+    .limit(Math.min(Math.max(limit, 1), 100))
+    .project({
+      email: 1,
+      label: 1,
+      score: 1,
+      band: 1,
+      nextBestAction: 1,
+      updatedAt: 1,
+    })
+    .toArray()
+}
+
 export async function listGrowthContacts(options: {
   consentOnly?: boolean
   lifecycleStage?: string
@@ -267,12 +320,14 @@ export async function getGrowthSegments() {
     marketable,
     engagedEmails,
     intentEmails,
+    opportunityEmails,
     purchases,
   ] = await Promise.all([
     db.collection(CONTACTS).countDocuments(),
     db.collection(CONTACTS).countDocuments({ marketingConsent: true }),
     emailsWithRecentInteraction(['email_open', 'email_click', 'email_reply'], last30Days),
     emailsWithRecentInteraction(['email_reply', 'pricing_visit', 'quote_request'], last30Days),
+    db.collection(OPPORTUNITIES).distinct('email', { score: { $gte: 55 } }) as Promise<string[]>,
     purchaseStats(),
   ])
 
@@ -314,6 +369,12 @@ export async function getGrowthSegments() {
         label: 'High-intent signals',
         count: intentEmails.filter(email => consentedEmails.has(email)).length,
         description: 'Permissioned contacts with a recent reply, pricing visit or quote request.',
+      },
+      {
+        key: 'opportunity_radar',
+        label: 'Opportunity Radar',
+        count: opportunityEmails.filter(email => consentedEmails.has(email)).length,
+        description: 'Permissioned contacts with a stored transparent opportunity score of 55 or higher.',
       },
       {
         key: 'reactivation',
