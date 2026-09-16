@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
+import { verifyAttributionToken } from '@/lib/attribution'
 import { ingestConversionEvent } from '@/lib/conversion-ingestion'
 import { mongoConfigured } from '@/lib/mongodb'
 
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
       amount?: number
       currency?: string
       campaignId?: string
+      attributionToken?: string
+      mabrig_attribution?: string
       product?: string
       reference?: string
       occurredAt?: string
@@ -74,6 +77,11 @@ export async function POST(request: Request) {
       )
     }
 
+    const attributionToken = body.attributionToken || body.mabrig_attribution
+    const verifiedAttribution = attributionToken
+      ? verifyAttributionToken(attributionToken)
+      : null
+
     const result = await ingestConversionEvent({
       provider: 'generic',
       eventKey: body.id,
@@ -82,7 +90,7 @@ export async function POST(request: Request) {
       name: body.name,
       amount: body.type === 'purchase' ? Number(body.amount) : undefined,
       currency: body.currency,
-      campaignId: body.campaignId,
+      campaignId: verifiedAttribution?.campaignId || body.campaignId,
       product: body.product,
       reference: body.reference,
       occurredAt: body.occurredAt,
