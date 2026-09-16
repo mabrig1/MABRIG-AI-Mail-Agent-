@@ -9,6 +9,8 @@
 - **Campaign Coach** — produces segmentation, subject-line, copy, CTA and measurement plans.
 - **Deliverability Guardian** — diagnoses SPF, DKIM, DMARC, PTR/rDNS, reputation, list and content issues.
 - **Mail-Server Operator** — explains likely server problems and proposes minimum-risk diagnostics.
+- **Email Forwarding Agent** — reviews a message against an explicitly supplied destination, drafts a forwarding note and flags privacy/confidentiality risks.
+- **Forwarding Rule Planner** — designs conservative recurring forwarding rules with exclusions, loop prevention and test steps.
 
 ## Safety model
 
@@ -86,9 +88,15 @@ Use long random values for `AUTH_SECRET` and `APPROVAL_SECRET`.
 
 ## Approval API
 
-`POST /api/actions/propose` creates a signed, expiring proposal for `send_email`, `create_campaign`, `create_mailbox`, or `change_mail_setting`.
+`POST /api/actions/propose` creates a signed, expiring proposal for `send_email`, `forward_email`, `create_forward_rule`, `create_campaign`, `create_mailbox`, or `change_mail_setting`.
 
 `POST /api/actions/approve` validates human approval but intentionally does **not** execute an external side effect yet.
+
+## Forwarding API
+
+`POST /api/forwarding/prepare` requires an authenticated administrator, an explicit destination email address and the original message. The forwarding agent reviews the message, prepares a forwarding recommendation and creates a signed `forward_email` proposal. Approval is separate from execution; no message is forwarded until a real executor is connected.
+
+The **Forwarding Rule Planner** is also available through `POST /api/agent` using agent `routing`. It is intended for recurring rules and must still pass through the signed approval gate before activation.
 
 ## Agent API
 
@@ -103,7 +111,7 @@ Example:
 }
 ```
 
-Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`.
+Supported agents: `triage`, `reply`, `campaign`, `deliverability`, `operator`, `forward`, `routing`.
 
 ## Production topology
 
