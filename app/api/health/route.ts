@@ -43,6 +43,10 @@ export async function GET() {
       maxRecipients: Math.max(Number(process.env.CAMPAIGN_MAX_RECIPIENTS ?? 1000), 1),
       dnsPassRequired: process.env.CAMPAIGN_REQUIRE_DNS_PASS !== 'false',
       startDelaySeconds: Math.max(Number(process.env.CAMPAIGN_START_DELAY_SECONDS ?? 300), 60),
+      attributionWindowDays: Math.min(
+        Math.max(Number(process.env.CAMPAIGN_ATTRIBUTION_WINDOW_DAYS ?? 14), 1),
+        90,
+      ),
     },
     growthAutopilot: {
       cooldownDays: Math.max(Number(process.env.GROWTH_AUTOPILOT_COOLDOWN_DAYS ?? 7), 1),
