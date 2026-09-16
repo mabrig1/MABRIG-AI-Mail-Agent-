@@ -21,6 +21,16 @@ type ConversionEvent = {
   lastError?: string
 }
 
+type NetworkSource = {
+  sourceApp: string
+  events: number
+  purchases: number
+  quoteRequests: number
+  directAttributedEvents: number
+  purchaseValueByCurrency: Record<string, number>
+  lastEventAt?: string | null
+}
+
 type GatewayPayload = {
   configured?: boolean
   integrations?: {
@@ -34,6 +44,7 @@ type GatewayPayload = {
     flutterwave?: string
   }
   events?: ConversionEvent[]
+  network?: NetworkSource[]
 }
 
 export function ConversionGateway() {
@@ -55,18 +66,15 @@ export function ConversionGateway() {
   }, [load])
 
   const events = payload.events ?? []
-  const sourceSummary = events.reduce<Record<string, { events: number; purchases: number; quoteRequests: number }>>(
-    (acc, event) => {
-      const source = event.source || event.provider || 'unknown'
-      const app = source.split(':')[0] || source
-      acc[app] ??= { events: 0, purchases: 0, quoteRequests: 0 }
-      acc[app].events += 1
-      if (event.type === 'purchase') acc[app].purchases += 1
-      if (event.type === 'quote_request') acc[app].quoteRequests += 1
-      return acc
-    },
-    {},
-  )
+  const network = payload.network ?? []
+
+  function valueLabel(values: Record<string, number>) {
+    const entries = Object.entries(values)
+    if (!entries.length) return 'No recorded purchase value'
+    return entries
+      .map(([currency, value]) => `${currency} ${Number(value).toLocaleString()}`)
+      .join(' · ')
+  }
 
   const integrations = [
     ['Generic HMAC', payload.integrations?.generic, payload.endpoints?.generic],
@@ -106,14 +114,18 @@ export function ConversionGateway() {
         ))}
       </div>
 
-      {Object.keys(sourceSummary).length > 0 && (
+      {network.length > 0 && (
         <div className="source-network-grid">
-          {Object.entries(sourceSummary).map(([source, summary]) => (
-            <article className="source-network-card" key={source}>
+          {network.map(source => (
+            <article className="source-network-card" key={source.sourceApp}>
               <p className="eyebrow">CONNECTED SOURCE</p>
-              <h3>{source}</h3>
+              <h3>{source.sourceApp}</h3>
               <p>
-                <strong>{summary.events}</strong> events · <strong>{summary.purchases}</strong> purchases · <strong>{summary.quoteRequests}</strong> quote requests
+                <strong>{source.events}</strong> events · <strong>{source.purchases}</strong> purchases · <strong>{source.quoteRequests}</strong> quote requests
+              </p>
+              <p>{valueLabel(source.purchaseValueByCurrency)}</p>
+              <p>
+                <strong>{source.directAttributedEvents}</strong> directly attributed event(s)
               </p>
             </article>
           ))}
