@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkMailServerReachability } from '@/lib/billionmail'
 import { getAdminSession } from '@/lib/auth-server'
+import { checkMongoReachability } from '@/lib/mongodb'
 
 export async function GET() {
   const session = await getAdminSession()
@@ -13,7 +14,10 @@ export async function GET() {
     })
   }
 
-  const mail = await checkMailServerReachability()
+  const [mail, persistence] = await Promise.all([
+    checkMailServerReachability(),
+    checkMongoReachability(),
+  ])
   return NextResponse.json({
     ok: true,
     service: 'MABRIG AI Mail Agent',
@@ -33,6 +37,7 @@ export async function GET() {
       (process.env.BILLIONMAIL_USERNAME && process.env.BILLIONMAIL_PASSWORD)
     ),
     forwardingExecutionEnabled: process.env.FORWARDING_EXECUTION_ENABLED === 'true',
+    persistence,
     mail,
   })
 }
