@@ -232,9 +232,14 @@ export function GrowthAutopilot() {
               )}
 
               {journey.status === 'approved-awaiting-executor' && (
-                <p className="journey-note">
-                  Approved by an administrator. Campaign execution is currently disabled by the production kill switch.
-                </p>
+                <div className="journey-note">
+                  <p>
+                    Approved by an administrator while campaign execution was disabled. The approved copy and audience snapshot are preserved.
+                  </p>
+                  <button type="button" onClick={() => stage(journey._id)} disabled={loading}>
+                    Create fresh execution approval
+                  </button>
+                </div>
               )}
 
               {journey.status === 'scheduled' && (
